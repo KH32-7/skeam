@@ -33,7 +33,11 @@ function Empty() {
 
 function Home({ games, featuredIds }: { games: Game[]; featuredIds: string[] }) {
   const byNew = useMemo(() => [...games].sort((a, b) => b.release.localeCompare(a.release)), [games])
-  const featured = featuredIds.length ? featuredIds.map((id) => games.find((g) => g.id === id)!).filter(Boolean) : byNew.slice(0, 12)
+  // Pinned games in site.yml come first; everything else is shuffled on every visit.
+  const featured = useMemo(() => {
+    const pinned = featuredIds.map((id) => games.find((g) => g.id === id)!).filter(Boolean)
+    return [...pinned, ...shuffle(games.filter((g) => !pinned.includes(g)))].slice(0, 12)
+  }, [games, featuredIds])
   const out = byNew.filter((g) => !g.comingSoon)
   const deals = out.filter((g) => g.discount > 0)
   const dealsOrNew = deals.length ? deals : out.slice(0, 6)
@@ -63,13 +67,38 @@ function Home({ games, featuredIds }: { games: Game[]; featuredIds: string[] }) 
   )
 }
 
-function Carousel({ games }: { games: Game[] }) {
+function shuffle<T>(xs: T[]): T[] {
+  const a = [...xs]
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[a[i], a[j]] = [a[j], a[i]]
+  }
+  return a
+}
+
+function Carousel({ games: initial }: { games: Game[] }) {
+  // After a full lap the order is shuffled again, so it never repeats the same way.
+  const [games, setGames] = useState(initial)
+  useEffect(() => {
+    setGames(initial)
+  }, [initial])
   const [i, setI] = useState(0)
   const [paused, setPaused] = useState(false)
   const n = games.length
   useEffect(() => {
     if (paused || n < 2) return
-    const t = setInterval(() => setI((x) => (x + 1) % n), 6000)
+    const t = setInterval(() => {
+      setI((x) => {
+        if (x + 1 < n) return x + 1
+        setGames((gs) => {
+          const next = shuffle(gs)
+          // don't show the same game twice in a row across the reshuffle
+          if (next[0] === gs[gs.length - 1]) next.push(next.shift()!)
+          return next
+        })
+        return 0
+      })
+    }, 6000)
     return () => clearInterval(t)
   }, [paused, n])
   const g = games[i % n]
