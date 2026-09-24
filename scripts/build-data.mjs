@@ -13,6 +13,7 @@
 // a `repo:` field get their latest GitHub Release merged in: download link,
 // size, version, and the release notes as a patch note.
 
+import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import * as yaml from 'js-yaml'
@@ -63,10 +64,16 @@ function listImages(dir) {
     .map((f) => path.join(dir, f))
 }
 
+// "?v=<content hash>": a replaced image gets a new address, so browsers and
+// GitHub Pages' 10-minute cache can't keep showing the old picture.
+function version(file) {
+  return crypto.createHash('md5').update(fs.readFileSync(file)).digest('hex').slice(0, 8)
+}
+
 function publish(id, src) {
   const rel = path.relative(path.join(ROOT, 'games', id), src).split(path.sep).join('/')
   copy(src, path.join(OUT_IMG, id, rel))
-  return `g/${id}/${rel}`
+  return `g/${id}/${rel}?v=${version(src)}`
 }
 
 // Coming-soon games may give "2026-10-15", just "2026-10", or nothing (미정).
@@ -295,7 +302,7 @@ function buildClub(games) {
     const src = path.join(dir, p)
     if (!exists(src)) return ''
     copy(src, path.join(OUT_IMG, '_club', p))
-    return `g/_club/${p.split(path.sep).join('/')}`
+    return `g/_club/${p.split(path.sep).join('/')}?v=${version(src)}`
   }
   return {
     name: String(y.name ?? 'KING'),
