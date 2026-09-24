@@ -87,7 +87,7 @@ export default function Player() {
 
   return (
     <div className="player">
-      <iframe ref={frame} src={g.playUrl} title={g.title} allow="fullscreen; autoplay; gamepad; clipboard-write; pointer-lock" allowFullScreen />
+      <iframe ref={frame} src={g.playUrl} title={g.title} allow="fullscreen; autoplay; gamepad; clipboard-write; pointer-lock; microphone; camera; screen-wake-lock" allowFullScreen />
       <div className="hot" onMouseEnter={() => setEdge(true)} />
       <div className={`edge ${edge ? 'show' : ''}`} onMouseLeave={() => setEdge(false)}>
         <img src="./skeam-icon.svg" alt="" width={16} />
