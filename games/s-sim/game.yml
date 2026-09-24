@@ -1,0 +1,14 @@
+title: "스트리머 시뮬레이터"
+title_en: "S-SIM"
+developer: "KH327"
+release: 2026-09-24
+price: 30000
+discount: 80
+play_url: "https://kh32-7.github.io/streamer-sim/"
+tags: ["시뮬레이션", "스트리머"]
+short: "60일간 스트리머로 살아남기"
+controls: "알아서 잘!"
+ai_tools: ["Claude Code"]
+dev_period: "2일"
+engine: "html"
+updated: "2026-09-24T11:42:58.564Z"
