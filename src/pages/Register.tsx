@@ -7,6 +7,7 @@ import { fetchLiveGames, fetchLiveSite, useData } from '../data/api'
 import { koDate } from '../format'
 import type { Game, Site } from '../types'
 import { useStore } from '../state/store'
+import { DEFAULT_TAGS, TAG_COLUMNS } from '../data/tags'
 
 /** "My games": the creator name matches this visitor's SKEAM nickname. */
 function useMyName() {
@@ -443,25 +444,7 @@ function GameForm({ games, site, existing, existingAbout }: { games: Game[]; sit
               태그 <small>쉼표로 구분</small>
             </label>
             <input value={f.tags} onChange={(e) => set('tags', e.target.value)} placeholder="요리, 시뮬레이션, 캐주얼" />
-            {knownTags.length > 0 && (
-              <div className="tag-picker">
-                <span className="hint">다른 게임들이 쓰는 태그 (누르면 추가·빼기)</span>
-                {knownTags.map((t) => {
-                  const on = tagList(f.tags).includes(t)
-                  return (
-                    <button
-                      key={t}
-                      type="button"
-                      className={`tag ${on ? 'on' : 'plain'}`}
-                      onClick={() => set('tags', (on ? tagList(f.tags).filter((x) => x !== t) : [...tagList(f.tags), t]).join(', '))}
-                    >
-                      {on ? '✓ ' : '+ '}
-                      {t}
-                    </button>
-                  )
-                })}
-              </div>
-            )}
+            <TagPicker value={tagList(f.tags)} used={knownTags} onChange={(ts) => set('tags', ts.join(', '))} />
           </div>
           <div className="field">
             <label>조작법</label>
@@ -706,6 +689,49 @@ function GameForm({ games, site, existing, existingAbout }: { games: Game[]; sit
           </div>
         )}
       </aside>
+    </div>
+  )
+}
+
+/** Tap to add or remove: tags SKEAM games already use, then every default tag by genre. */
+function TagPicker({ value, used, onChange }: { value: string[]; used: string[]; onChange: (tags: string[]) => void }) {
+  const [all, setAll] = useState(false)
+  const chip = (t: string) => {
+    const on = value.includes(t)
+    return (
+      <button key={t} type="button" className={`tag ${on ? 'on' : 'plain'}`} onClick={() => onChange(on ? value.filter((x) => x !== t) : [...value, t])}>
+        {on ? '✓ ' : '+ '}
+        {t}
+      </button>
+    )
+  }
+  const others = DEFAULT_TAGS.filter((t) => !TAG_COLUMNS.some((c) => c.tags.includes(t)))
+  return (
+    <div className="tag-picker-box">
+      {value.length > 0 && <div className="tag-picker-sel">고른 태그 {value.length}개 · 4~8개를 추천해요</div>}
+      {used.length > 0 && (
+        <div className="tag-picker">
+          <span className="hint">SKEAM 게임들이 많이 쓰는 태그</span>
+          {used.slice(0, 16).map(chip)}
+        </div>
+      )}
+      <button type="button" className="cat-toggle" style={{ marginLeft: 0, fontSize: 13, marginTop: 8 }} onClick={() => setAll(!all)}>
+        기본 태그 전체 {all ? '접기 ⌃' : '펼치기 ⌄'}
+      </button>
+      {all && (
+        <div className="tag-groups">
+          {TAG_COLUMNS.map((c) => (
+            <div key={c.name} className="tag-picker">
+              <span className="hint">{c.name}</span>
+              {c.tags.map(chip)}
+            </div>
+          ))}
+          <div className="tag-picker">
+            <span className="hint">그 밖의 태그</span>
+            {others.map(chip)}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

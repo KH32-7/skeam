@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useData } from '../data/api'
 import { useStore } from '../state/store'
+import { CategoryMenu } from './CategoryMenu'
 import { Price } from './ui'
 
 export function StoreNav() {
@@ -11,12 +12,6 @@ export function StoreNav() {
   const [open, setOpen] = useState<string | null>(null)
   const [q, setQ] = useState('')
   const [hl, setHl] = useState(0)
-
-  const tags = useMemo(() => {
-    const count = new Map<string, number>()
-    data?.games.forEach((g) => g.tags.forEach((t) => count.set(t, (count.get(t) ?? 0) + 1)))
-    return [...count.entries()].sort((a, b) => b[1] - a[1]).map(([t]) => t)
-  }, [data])
 
   const hits = useMemo(() => {
     const s = q.trim().toLowerCase()
@@ -44,7 +39,8 @@ export function StoreNav() {
   )
 
   return (
-    <div className="store-nav">
+    // The category menu spans the whole bar, so leaving the bar or the menu closes it.
+    <div className="store-nav" onMouseLeave={() => setOpen(null)}>
       <Drop id="home" label="상점">
         <Link to="/">홈</Link>
         <Link to="/search?sort=new">신규 출시</Link>
@@ -58,13 +54,9 @@ export function StoreNav() {
         <Link to="/search?platform=web">브라우저에서 플레이</Link>
         <Link to="/search?platform=windows">Windows 다운로드</Link>
       </Drop>
-      <Drop id="cat" label="카테고리">
-        {tags.map((t) => (
-          <Link key={t} to={`/search?tag=${encodeURIComponent(t)}`}>
-            {t}
-          </Link>
-        ))}
-      </Drop>
+      <div className={`item ${open === 'cat' ? 'active' : ''}`} onMouseEnter={() => setOpen('cat')} onClick={() => setOpen(open === 'cat' ? null : 'cat')}>
+        카테고리 <span className="caret">▼</span>
+      </div>
       <Link className="item" to="/register">
         게임 등록
       </Link>
@@ -112,6 +104,7 @@ export function StoreNav() {
       <Link className="wish" to="/wishlist">
         ★ 찜 목록 <small>{wish}</small>
       </Link>
+      {open === 'cat' && data && <CategoryMenu games={data.games} onPick={() => setOpen(null)} />}
     </div>
   )
 }

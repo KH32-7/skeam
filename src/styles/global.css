@@ -2306,3 +2306,235 @@ input.mini::placeholder {
   background: var(--blue);
   color: #fff;
 }
+
+/* ---------- category mega menu (Steam's 카테고리) ---------- */
+
+.store-nav {
+  position: relative;
+}
+.store-nav .item.active {
+  color: #1a9fff;
+}
+.store-nav .item.active::after {
+  content: '';
+  position: absolute;
+  left: 14px;
+  right: 30px;
+  bottom: 8px;
+  height: 2px;
+  background: #1a9fff;
+}
+.cat-mega {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 35;
+  padding: 16px 20px 20px;
+  background: rgba(20, 29, 42, 0.97);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.6);
+  cursor: default;
+}
+.cat-head {
+  margin: 0 0 10px;
+  color: #8f98a0;
+  font-size: 13px;
+  font-weight: 400;
+}
+.cat-head.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 4px;
+}
+.cat-cards {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 16px;
+}
+.cat-card {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 130px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #22303f;
+}
+.cat-card img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.25s;
+}
+.cat-card .tint {
+  position: absolute;
+  inset: 0;
+  opacity: 0.72;
+  mix-blend-mode: multiply;
+}
+.cat-card:hover img {
+  transform: scale(1.06);
+}
+.cat-card .label {
+  position: relative;
+  max-width: 86%;
+  padding: 6px 12px;
+  background: #fff;
+  border-radius: 2px;
+  color: #000;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.35;
+  text-align: center;
+  word-break: keep-all;
+}
+.cat-pills {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 16px;
+}
+.cat-pill {
+  padding: 3px 14px;
+  border-radius: 2px;
+  background: rgba(103, 193, 245, 0.2);
+  color: #67c1f5;
+  font-size: 15px;
+}
+.cat-pill:hover {
+  background: #67c1f5;
+  color: #fff;
+}
+.cat-all,
+.cat-toggle {
+  margin-left: auto;
+  color: #1a9fff;
+  font-size: 16px;
+}
+.cat-toggle {
+  background: none;
+  border: none;
+  padding: 0;
+}
+.cat-all:hover,
+.cat-toggle:hover {
+  color: #fff;
+}
+.cat-cols {
+  display: grid;
+  grid-template-columns: repeat(7, auto);
+  justify-content: space-between;
+  gap: 0 24px;
+}
+.cat-col a {
+  display: block;
+  padding: 4px 0;
+  color: #dcdedf;
+  font-size: 16px;
+  white-space: nowrap;
+}
+.cat-col a:hover {
+  color: #1a9fff;
+}
+@media (max-width: 900px) {
+  .cat-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .cat-cols {
+    grid-template-columns: repeat(2, auto);
+  }
+}
+
+.tags-page {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 20px;
+}
+.tags-page section {
+  padding: 14px 16px;
+  background: rgba(0, 0, 0, 0.2);
+}
+.tags-page h3 {
+  margin: 0 0 8px;
+  color: #fff;
+  font-size: 15px;
+}
+.tags-page a {
+  display: block;
+  padding: 3px 0;
+  color: #dcdedf;
+}
+.tags-page a small {
+  color: #67c1f5;
+}
+.tags-page a.none {
+  color: #8f98a0;
+}
+.tags-page a:hover {
+  color: #1a9fff;
+}
+
+.tag-picker-sel {
+  margin-top: 6px;
+  color: #a4d007;
+  font-size: 12px;
+}
+.tag-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 6px 18px;
+  margin-top: 6px;
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+/* 할인 및 이벤트: three per page, sliding */
+.deals-carousel {
+  position: relative;
+}
+.deals-carousel .arrow {
+  position: absolute;
+  top: 45%;
+  transform: translateY(-50%);
+  width: 46px;
+  height: 110px;
+  border: none;
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0));
+  color: #fff;
+  font-size: 34px;
+  opacity: 0.7;
+}
+.deals-carousel .arrow:hover {
+  opacity: 1;
+}
+.deals-carousel .arrow.l {
+  left: -58px;
+}
+.deals-carousel .arrow.r {
+  right: -58px;
+  background: linear-gradient(270deg, rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0));
+}
+.deals-window {
+  overflow: hidden;
+  padding: 4px 0 8px;
+}
+/* The track is one gap wider than the window, so a page (3 cards + 3 gaps)
+   is exactly 100% of the track and translateX(-100% * page) lines up. */
+.deals-track {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: calc((100% - 48px) / 3);
+  gap: 16px;
+  margin-right: -16px;
+  transition: transform 0.45s ease;
+}
+@media (max-width: 900px) {
+  .deals-carousel .arrow {
+    display: none;
+  }
+}

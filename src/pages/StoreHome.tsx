@@ -53,7 +53,7 @@ function Home({ games, featuredIds }: { games: Game[]; featuredIds: string[] }) 
           더 보기
         </Link>
       </div>
-      <Deals games={dealsOrNew.slice(0, 6)} />
+      <Deals games={dealsOrNew.slice(0, 12)} />
 
       <TabbedList games={games} />
 
@@ -142,21 +142,46 @@ function FeatureReason({ g }: { g: Game }) {
   )
 }
 
+/** Three cards at a time; arrows and dots page through the rest, like Steam. */
 function Deals({ games }: { games: Game[] }) {
   const wish = useStore((s) => s.wishlist)
+  const pages = Math.ceil(games.length / 3)
+  const [page, setPage] = useState(0)
+  const go = (p: number) => setPage((p + pages) % pages)
   return (
-    <div className="deals">
-      {games.map((g) => (
-        <Link key={g.id} className="deal" to={`/app/${g.id}`}>
-          <img src={g.images.header} alt="" />
-          <span className={`badge ${g.discount ? '' : 'blue'}`}>{g.discount ? '주중 특가' : g.platform === 'windows' ? 'Windows' : '브라우저'}</span>
-          {wish.includes(g.id) && <span className="wish-ribbon">★ 찜 목록에 있음</span>}
-          <div className="body">
-            <span className="title">{g.title}</span>
-            <Price game={g} />
+    <div className="deals-carousel">
+      {pages > 1 && (
+        <button className="arrow l" aria-label="이전" onClick={() => go(page - 1)}>
+          ‹
+        </button>
+      )}
+      <div className="deals-window">
+        <div className="deals-track" style={{ transform: `translateX(-${page * 100}%)` }}>
+          {games.map((g) => (
+            <Link key={g.id} className="deal" to={`/app/${g.id}`}>
+              <img src={g.images.header} alt="" />
+              <span className={`badge ${g.discount ? '' : 'blue'}`}>{g.discount ? '주중 특가' : g.platform === 'windows' ? 'Windows' : '브라우저'}</span>
+              {wish.includes(g.id) && <span className="wish-ribbon">★ 찜 목록에 있음</span>}
+              <div className="body">
+                <span className="title">{g.title}</span>
+                <Price game={g} />
+              </div>
+            </Link>
+          ))}
+        </div>
+      </div>
+      {pages > 1 && (
+        <>
+          <button className="arrow r" aria-label="다음" onClick={() => go(page + 1)}>
+            ›
+          </button>
+          <div className="dots">
+            {Array.from({ length: pages }, (_, i) => (
+              <button key={i} className={i === page ? 'on' : ''} aria-label={`${i + 1}쪽`} onClick={() => setPage(i)} />
+            ))}
           </div>
-        </Link>
-      ))}
+        </>
+      )}
     </div>
   )
 }
