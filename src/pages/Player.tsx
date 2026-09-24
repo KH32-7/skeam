@@ -22,7 +22,7 @@ export default function Player() {
     if (!g || !owned) return
     markLaunched(g.id)
     const t = setInterval(() => document.visibilityState === 'visible' && addPlaytime(g.id, TICK), TICK * 1000)
-    toast({ title: 'SKEAM 오버레이', body: 'Shift+Tab 또는 화면 위쪽 가운데에 마우스를 올리면 열립니다.', glyph: '⌂' })
+    toast({ title: 'SKEAM 오버레이', body: '왼쪽 위 SKEAM 버튼이나 Shift+Tab으로 열 수 있어요.', glyph: '⌂' })
     const hide = setTimeout(() => setEdge(false), 4000)
     return () => {
       clearInterval(t)
@@ -88,6 +88,12 @@ export default function Player() {
   return (
     <div className="player">
       <iframe ref={frame} src={g.playUrl} title={g.title} allow="fullscreen; autoplay; gamepad; clipboard-write; pointer-lock; microphone; camera; screen-wake-lock" allowFullScreen />
+      {/* Keys pressed inside a game from another site never reach SKEAM, so
+          Shift+Tab can't be relied on. This corner button always works. */}
+      <button className="overlay-fab" title="SKEAM 오버레이 (Shift+Tab)" onClick={() => setOverlay(true)}>
+        <img src="./skeam-icon.svg" alt="" />
+        SKEAM
+      </button>
       <div className="hot" onMouseEnter={() => setEdge(true)} />
       <div className={`edge ${edge ? 'show' : ''}`} onMouseLeave={() => setEdge(false)}>
         <img src="./skeam-icon.svg" alt="" width={16} />

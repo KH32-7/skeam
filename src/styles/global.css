@@ -2227,3 +2227,30 @@ input.mini::placeholder {
 .brand-menu:hover {
   color: #fff;
 }
+
+.overlay-fab {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 6px;
+  border: none;
+  border-radius: 14px;
+  background: rgba(23, 26, 33, 0.75);
+  color: #c7d5e0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  opacity: 0.35;
+  transition: opacity 0.15s;
+}
+.overlay-fab:hover {
+  opacity: 1;
+}
+.overlay-fab img {
+  width: 18px;
+  height: 18px;
+}
