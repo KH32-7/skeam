@@ -84,6 +84,17 @@ function tagList(v) {
   return [...new Set(asList(v).flatMap((t) => (t.includes('#') ? t.split('#') : [t])).map((t) => t.trim()).filter(Boolean))]
 }
 
+// "1.10.0" > "1.2" > "1.1.0"; missing versions sort last.
+function compareVersions(a, b) {
+  const pa = String(a || '').split(/[^0-9]+/).filter(Boolean).map(Number)
+  const pb = String(b || '').split(/[^0-9]+/).filter(Boolean).map(Number)
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const d = (pa[i] ?? -1) - (pb[i] ?? -1)
+    if (d) return d
+  }
+  return 0
+}
+
 function humanSize(bytes) {
   if (!bytes) return ''
   const mb = bytes / 1024 / 1024
@@ -174,6 +185,8 @@ async function buildGame(id) {
     for (const f of fs.readdirSync(newsDir).filter((f) => f.endsWith('.md'))) {
       const { meta, body } = frontMatter(fs.readFileSync(path.join(newsDir, f), 'utf8'))
       news.push({
+        // Files from the register helper end in a base-36 timestamp, so names sort by upload time.
+        order: String(meta.time ?? f),
         title: String(meta.title ?? f.replace(/\.md$/, '')),
         date: toDate(meta.date) || f.slice(0, 10),
         version: meta.version ? String(meta.version) : '',
@@ -228,6 +241,7 @@ async function buildGame(id) {
         }
         game.version = r.release.tag_name?.replace(/^v/i, '') || game.version
         news.push({
+          order: String(r.release.published_at ?? ''),
           title: r.release.name || r.release.tag_name,
           date: (r.release.published_at ?? '').slice(0, 10),
           version: game.version,
@@ -242,7 +256,9 @@ async function buildGame(id) {
     }
   }
 
-  news.sort((a, b) => b.date.localeCompare(a.date))
+  // Newest first: by date, then by version, then by upload order.
+  news.sort((a, b) => b.date.localeCompare(a.date) || compareVersions(b.version, a.version) || b.order.localeCompare(a.order))
+  news.forEach((n) => delete n.order)
   game.platform = game.playUrl && game.download ? 'both' : game.playUrl ? 'web' : 'windows'
   return game
 }
