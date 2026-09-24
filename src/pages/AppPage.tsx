@@ -7,6 +7,7 @@ import { useGame } from '../data/api'
 import { koDate, platformLabel } from '../format'
 import { NONE, toggleWishlist, useStore } from '../state/store'
 import type { Game } from '../types'
+import { developerPath } from './Developer'
 
 function youtubeId(url: string) {
   const m = url.match(/(?:youtu\.be\/|v=|embed\/|shorts\/)([\w-]{11})/)
@@ -73,7 +74,7 @@ function App({ g, endpoint }: { g: Game; endpoint: string }) {
             <span className="v">{koDate(g.release)}</span>
             <span>제작자:</span>
             <span className="v">
-              <Link to={`/search?dev=${encodeURIComponent(g.developer)}`}>{g.developer}</Link>
+              <Link to={developerPath(g.developer)}>{g.developer}</Link>
             </span>
             {g.engine && (
               <>
@@ -216,7 +217,7 @@ function App({ g, endpoint }: { g: Game; endpoint: string }) {
           )}
           <div className="side-block">
             <h4>제작자</h4>
-            <Link to={`/search?dev=${encodeURIComponent(g.developer)}`}>{g.developer}</Link>의 다른 게임 보기
+            <Link to={developerPath(g.developer)}>{g.developer}</Link>의 다른 게임 보기
           </div>
           <div className="side-block">
             <h4>공유</h4>

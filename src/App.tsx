@@ -13,6 +13,7 @@ import Wallet from './pages/Wallet'
 const Community = lazy(() => import('./pages/Community'))
 const Profile = lazy(() => import('./pages/Profile'))
 const Register = lazy(() => import('./pages/Register'))
+const Developer = lazy(() => import('./pages/Developer'))
 
 function ScrollTop() {
   const { pathname } = useLocation()
@@ -43,6 +44,7 @@ function Shell() {
           <Route path="/community" element={<Community />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/developer/:name" element={<Developer />} />
           <Route path="*" element={<StoreHome />} />
         </Routes>
       </Suspense>

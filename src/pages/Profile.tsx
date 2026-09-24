@@ -4,6 +4,7 @@ import { Avatar, AVATAR_COUNT, Loading } from '../components/ui'
 import { useData } from '../data/api'
 import { hours, walletWon } from '../format'
 import { setProfile, useStore } from '../state/store'
+import { developerPath, GameList } from './Developer'
 
 export default function Profile() {
   const { data } = useData()
@@ -17,6 +18,8 @@ export default function Profile() {
   if (!data) return <Loading />
 
   const mine = data.games.filter((g) => owned[g.id])
+  // Games whose creator name matches this visitor's nickname.
+  const made = profile ? data.games.filter((g) => g.developer.toLowerCase() === profile.name.trim().toLowerCase()) : []
   const total = mine.reduce((a, g) => a + owned[g.id].playtime, 0)
   const achCount = Object.values(ach).reduce((a, m) => a + Object.keys(m).length, 0)
   const level = Math.max(1, mine.length * 2 + achCount)
@@ -68,6 +71,18 @@ export default function Profile() {
           <Stat label="총 플레이 시간" value={hours(total)} />
           <Stat label="도전 과제" value={`${achCount}개`} />
         </div>
+
+        {made.length > 0 && (
+          <>
+            <div className="section-head">
+              <h2>내가 만든 게임</h2>
+              <Link className="btn-more" to={developerPath(profile!.name)}>
+                제작자 페이지
+              </Link>
+            </div>
+            <GameList games={made} empty="" />
+          </>
+        )}
 
         <div className="section-head">
           <h2>최근 활동</h2>

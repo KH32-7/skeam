@@ -242,7 +242,14 @@ async function buildGame(id) {
   return game
 }
 
-function buildClub() {
+// Guess a creator's GitHub account from where their games live.
+function githubOf(g) {
+  const m = (g.playUrl.match(/^https:\/\/([\w-]+)\.github\.io\//i) ?? g.repo.match(/github\.com\/([\w-]+)\//i)) || null
+  return m ? m[1] : ''
+}
+
+/** Members from club.yml, plus every other creator who has a game on SKEAM. */
+function buildClub(games) {
   const dir = path.join(ROOT, 'club')
   const y = exists(path.join(dir, 'club.yml')) ? readYaml(path.join(dir, 'club.yml')) : {}
   const about = exists(path.join(dir, 'about.md')) ? marked.parse(fs.readFileSync(path.join(dir, 'about.md'), 'utf8')) : ''
@@ -258,13 +265,24 @@ function buildClub() {
     aboutHtml: about,
     banner: y.banner ? pub(y.banner) : '',
     join: String(y.join ?? ''),
-    members: (y.members ?? []).map((m) => ({
-      name: String(m.name ?? ''),
-      role: String(m.role ?? ''),
-      github: m.github ? String(m.github) : '',
-      avatar: m.avatar ? pub(m.avatar) : '',
-      bio: String(m.bio ?? ''),
-    })),
+    members: (() => {
+      const listed = (y.members ?? []).map((m) => ({
+        name: String(m.name ?? ''),
+        role: String(m.role ?? ''),
+        github: m.github ? String(m.github) : '',
+        avatar: m.avatar ? pub(m.avatar) : '',
+        bio: String(m.bio ?? ''),
+      }))
+      const known = new Set(listed.map((m) => m.name.toLowerCase()))
+      const extra = []
+      for (const g of [...games].sort((a, b) => a.release.localeCompare(b.release))) {
+        const key = g.developer.toLowerCase()
+        if (!g.developer || known.has(key)) continue
+        known.add(key)
+        extra.push({ name: g.developer, role: '제작자', github: githubOf(g), avatar: '', bio: '' })
+      }
+      return [...listed, ...extra]
+    })(),
     photos: listImages(path.join(dir, 'photos')).map((p) => pub(path.relative(dir, p))),
   }
 }
@@ -303,7 +321,7 @@ async function main() {
   }
 
   fs.writeFileSync(path.join(OUT_DATA, 'games.json'), JSON.stringify(games))
-  fs.writeFileSync(path.join(OUT_DATA, 'club.json'), JSON.stringify(buildClub()))
+  fs.writeFileSync(path.join(OUT_DATA, 'club.json'), JSON.stringify(buildClub(games)))
   fs.writeFileSync(path.join(OUT_DATA, 'site.json'), JSON.stringify(site))
 
   console.log(`SKEAM 데이터: 게임 ${games.length}개${skipped.length ? ` (빠진 게임: ${skipped.join(', ')})` : ''}`)

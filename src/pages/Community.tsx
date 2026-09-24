@@ -1,12 +1,13 @@
 import { Link } from 'react-router-dom'
 import { Loading } from '../components/ui'
 import { useData } from '../data/api'
+import { developerPath, memberAvatar } from './Developer'
 
 export default function Community() {
   const { data } = useData()
   if (!data) return <Loading />
   const { club, games } = data
-  const count = (m: { name: string; github: string }) => games.filter((g) => g.developer === m.name).length
+  const count = (m: { name: string }) => games.filter((g) => g.developer.toLowerCase() === m.name.toLowerCase()).length
 
   return (
     <div className="store">
@@ -37,8 +38,8 @@ export default function Community() {
             </div>
             <div className="members">
               {club.members.map((m) => (
-                <Link key={m.name} className="member" to={`/search?dev=${encodeURIComponent(m.name)}`} style={{ color: 'inherit' }}>
-                  <img className="av" src={m.avatar || (m.github ? `https://github.com/${m.github}.png?size=112` : './skeam-icon.svg')} alt="" />
+                <Link key={m.name} className="member" to={developerPath(m.name)} style={{ color: 'inherit' }}>
+                  <img className="av" src={memberAvatar(m)} alt="" />
                   <div>
                     <div className="n">{m.name}</div>
                     <div className="r">{m.role}</div>
