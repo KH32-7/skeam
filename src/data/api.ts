@@ -3,8 +3,11 @@ import type { Club, Game, Site } from '../types'
 
 let cache: Promise<{ games: Game[]; club: Club; site: Site }> | null = null
 
+// GitHub Pages lets browsers cache files for 10 minutes. 'no-cache' makes every
+// page load ask whether the list changed (a cheap 304 when it hasn't), so a
+// newly registered game shows up on the next refresh.
 async function getJson<T>(name: string, fresh = false): Promise<T> {
-  const res = await fetch(`data/${name}.json${fresh ? `?t=${Date.now()}` : ''}`, fresh ? { cache: 'no-store' } : undefined)
+  const res = await fetch(`data/${name}.json${fresh ? `?t=${Date.now()}` : ''}`, { cache: fresh ? 'no-store' : 'no-cache' })
   if (!res.ok) throw new Error(`${name}.json ${res.status}`)
   return res.json()
 }
