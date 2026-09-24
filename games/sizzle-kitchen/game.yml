@@ -52,5 +52,13 @@ achievements:
     icon: achievements/rich_200k.png
   - id: menu_master
     name: "메뉴 마스터"
-    desc: "15가지 메뉴 모두 70점 이상을 받으세요"
+    desc: "모든 메뉴(DLC 포함) 70점 이상을 받으세요"
     icon: achievements/menu_master.png
+  - id: fry_master
+    name: "튀김 장인"
+    desc: "튀김 팩 요리로 90점 이상을 받으세요"
+    icon: achievements/fry_master.png
+  - id: steam_master
+    name: "찜의 달인"
+    desc: "찜 팩 요리로 90점 이상을 받으세요"
+    icon: achievements/steam_master.png
