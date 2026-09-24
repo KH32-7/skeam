@@ -1,0 +1,13 @@
+title: "작업표시줄 특급"
+title_en: "Taskbar Express"
+developer: KH327
+release: 2026-09-24
+price: 0
+version: "1.0.0"
+download: "https://github.com/KH32-7/skeam/releases/download/taskbar-express-v1.0.0/taskbar-express-1.0.0.zip"
+download_size: "125 MB"
+tags: [방치형, 기차, 캐주얼, 픽셀 아트, 힐링]
+short: "작업표시줄 위를 달리는 작은 증기 기차, 꺼 둬도 알아서 벌어 오는 방치형 게임"
+controls: "마우스 클릭"
+ai_tools: [Claude Code]
+engine: Godot 4.7

@@ -1,0 +1,12 @@
+title: "셀 러시"
+title_en: "CEL RUSH"
+developer: KH327
+release: 2026-09-23
+price: 15000
+discount: 20
+play_url: https://kh32-7.github.io/celrush/
+tags: [레이싱, 아케이드, 셀 셰이딩, 3D]
+short: "만화책이 그대로 움직이는 화면을 달리는 아케이드 레이서. 자동차와 보트로 6개 코스를 질주하세요."
+controls: "A D / ← → 조향, W 가속, S 감속, Space 드리프트(떼면 부스트), R 리스폰, C 카메라, Esc 일시정지. 게임패드 지원"
+ai_tools: [Claude Code]
+engine: "TypeScript + Three.js (Vite)"

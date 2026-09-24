@@ -1,0 +1,11 @@
+title: "지글지글 키친"
+title_en: "Sizzle Kitchen"
+developer: KH327
+release: 2026-09-24
+price: 9900
+play_url: https://kh32-7.github.io/sizzle-kitchen/
+tags: [요리, 시뮬레이션, 경영, 캐주얼]
+short: "썰고, 볶고, 삶고, 부쳐서 손님 주문을 처리하는 동네 식당 요리 시뮬레이션."
+controls: "마우스로 재료를 집고 도구를 사용합니다. 휠로 칼 각도, 우클릭으로 도마 돌리기"
+ai_tools: [Claude Code]
+engine: "HTML 단일 파일"

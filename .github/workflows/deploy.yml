@@ -1,0 +1,60 @@
+name: Deploy SKEAM
+
+on:
+  push:
+    branches: [main]
+  # Hourly: pick up new GitHub Releases from creators' own repos.
+  schedule:
+    - cron: '17 * * * *'
+  # The register helper's "업데이트 알리기" button triggers this.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.diff.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SKEAM_REGISTER_ENDPOINT: ${{ vars.SKEAM_REGISTER_ENDPOINT }}
+
+      # Scheduled runs only redeploy when a creator actually shipped something.
+      - id: diff
+        run: |
+          if [ "${{ github.event_name }}" != "schedule" ]; then echo "changed=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          owner=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          live=$(curl -fsSL "https://${owner}.github.io/${{ github.event.repository.name }}/data/games.json" || echo none)
+          if [ "$live" = "$(cat dist/data/games.json)" ]; then echo "changed=false" >> "$GITHUB_OUTPUT"; else echo "changed=true" >> "$GITHUB_OUTPUT"; fi
+
+      - uses: actions/upload-pages-artifact@v3
+        if: steps.diff.outputs.changed == 'true'
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    if: needs.build.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
