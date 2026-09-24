@@ -422,6 +422,7 @@ function GameForm({ games, site, existing, existingAbout }: { games: Game[]; sit
           </div>
           <div className="field">
             <label>Windows 다운로드</label>
+            <span className="hint">GitHub Pages나 Unity Play처럼 브라우저 링크로 올리는 게임이면 여기는 "없음"으로 두세요.</span>
             <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 13 }}>
               {(
                 [
