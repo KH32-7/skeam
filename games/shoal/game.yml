@@ -1,0 +1,11 @@
+title: "무리"
+title_en: "SHOAL"
+developer: KH327
+release: 2026-09-25
+price: 12900
+play_url: https://kh32-7.github.io/shoal/
+tags: [시뮬레이션, 액션, 3D, 바다, 분위기 있는]
+short: "열 마리로 시작해 수천 마리로 불어나는 물고기 떼를 마우스 하나로 이끌고, 포식자를 피해 심해로 내려가세요."
+controls: "마우스로 무리 유도, 좌클릭 유지로 응집, Space 응집 고정, Esc/P 일시정지, M 음소거"
+ai_tools: [Claude Code]
+engine: "TypeScript + Three.js (Vite)"
