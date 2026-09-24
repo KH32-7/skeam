@@ -733,12 +733,16 @@ img {
   margin-right: 10px;
 }
 .tab-preview {
-  padding: 16px;
-  background: linear-gradient(180deg, #95bbd4 0, rgba(149, 187, 212, 0.4) 100%);
+  position: relative;
+  min-height: 300px;
   background: #223244;
-  align-self: start;
-  position: sticky;
-  top: 110px;
+  overflow: hidden;
+}
+.tab-preview-inner {
+  position: absolute;
+  inset: 0;
+  padding: 16px;
+  overflow: hidden;
 }
 .tab-preview h3 {
   margin: 0 0 6px;

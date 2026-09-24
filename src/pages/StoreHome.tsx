@@ -217,22 +217,27 @@ function TabbedList({ games }: { games: Game[] }) {
           ))}
         </div>
         {pv && (
+          // The inner box is absolutely positioned, so however many screenshots
+          // there are, the panel stays as tall as the list and never pushes
+          // the sections below it down.
           <div className="tab-preview">
-            <h3>{pv.title}</h3>
-            <div className="ai">
-              제작 {pv.developer}
-              {pv.aiTools.length > 0 && ` · ${pv.aiTools.join(', ')}`}
-            </div>
-            <div style={{ margin: '8px 0' }}>
-              {pv.tags.slice(0, 5).map((t) => (
-                <span key={t} className="tag plain">
-                  {t}
-                </span>
+            <div className="tab-preview-inner">
+              <h3>{pv.title}</h3>
+              <div className="ai">
+                제작 {pv.developer}
+                {pv.aiTools.length > 0 && ` · ${pv.aiTools.join(', ')}`}
+              </div>
+              <div style={{ margin: '8px 0' }}>
+                {pv.tags.slice(0, 5).map((t) => (
+                  <span key={t} className="tag plain">
+                    {t}
+                  </span>
+                ))}
+              </div>
+              {(pv.images.screenshots.length ? pv.images.screenshots : [pv.images.header]).slice(0, 4).map((s) => (
+                <img key={s} src={s} alt="" />
               ))}
             </div>
-            {(pv.images.screenshots.length ? pv.images.screenshots : [pv.images.header]).slice(0, 4).map((s) => (
-              <img key={s} src={s} alt="" />
-            ))}
           </div>
         )}
       </div>
