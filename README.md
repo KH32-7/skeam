@@ -41,6 +41,8 @@ title: "지글지글 키친"
 title_en: "Sizzle Kitchen"        # 선택
 developer: KH327
 release: 2026-09-24
+coming_soon: true                 # 출시 예정 (찜만 가능). release는 2026-10-15, "2026-10", 또는 생략(미정)
+                                  # 정확한 날짜가 되고 게임 주소가 있으면 자동으로 출시됩니다
 price: 9900                       # 0이면 무료
 discount: 20                      # 선택, %
 play_url: https://.../            # 브라우저 게임
