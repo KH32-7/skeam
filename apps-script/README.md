@@ -24,8 +24,8 @@ Apps Script 왼쪽 **프로젝트 설정(톱니바퀴) → 스크립트 속성 �
 | 속성 | 값 |
 | --- | --- |
 | `GITHUB_TOKEN` | 2에서 복사한 토큰 |
-| `REPO` | `KH32-7/skeam` |
-| `BRANCH` | `main` |
+
+레포를 동아리 Organization으로 옮기면 `REPO` 속성에 새 주소(예: `KING/skeam`)를 추가합니다.
 
 ## 4. 웹 앱으로 배포
 

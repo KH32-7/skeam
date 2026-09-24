@@ -9,8 +9,8 @@
  * Script properties (Project Settings → Script properties):
  *   GITHUB_TOKEN  fine-grained token for the SKEAM repo only:
  *                 Contents: read & write, Actions: read & write
- *   REPO          e.g. KH32-7/skeam
- *   BRANCH        main (optional)
+^ *   REPO          optional, defaults to KH32-7/skeam
+ *   BRANCH        optional, defaults to main
  */
 
 var ID_RE = /^[a-z0-9][a-z0-9-]{1,39}$/
@@ -73,7 +73,7 @@ function commitGameFiles(id, files, clear, message) {
   })
   if (total > MAX_TOTAL) throw new Error('파일이 너무 큽니다 (최대 45MB)')
 
-  var repo = prop('REPO')
+  var repo = prop('REPO', 'KH32-7/skeam')
   var branch = prop('BRANCH', 'main')
   var head = gh('GET', '/repos/' + repo + '/git/ref/heads/' + branch).object.sha
   var baseTree = gh('GET', '/repos/' + repo + '/git/commits/' + head).tree.sha
@@ -103,7 +103,7 @@ function commitGameFiles(id, files, clear, message) {
 
 /** EXE zips go to a Release on the SKEAM repo itself (files up to 2 GB). */
 function uploadExe(id, exe) {
-  var repo = prop('REPO')
+  var repo = prop('REPO', 'KH32-7/skeam')
   var tag = id + '-v' + String(exe.version || '1.0.0').replace(/[^\w.-]/g, '')
   var rel
   var res = ghRaw('GET', 'https://api.github.com/repos/' + repo + '/releases/tags/' + encodeURIComponent(tag))
@@ -120,7 +120,7 @@ function uploadExe(id, exe) {
 }
 
 function dispatchDeploy() {
-  gh('POST', '/repos/' + prop('REPO') + '/actions/workflows/deploy.yml/dispatches', { ref: prop('BRANCH', 'main') })
+  gh('POST', '/repos/' + prop('REPO', 'KH32-7/skeam') + '/actions/workflows/deploy.yml/dispatches', { ref: prop('BRANCH', 'main') })
   return { ok: true }
 }
 
