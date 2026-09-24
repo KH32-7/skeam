@@ -732,9 +732,12 @@ img {
 .tab-item .price {
   margin-right: 10px;
 }
+/* Tall enough for the title, tags and one whole screenshot even when the list
+   is a single row; a longer list makes it taller. Anything past the bottom
+   fades out instead of being cut off hard. */
 .tab-preview {
   position: relative;
-  min-height: 300px;
+  min-height: 460px;
   background: #223244;
   overflow: hidden;
 }
@@ -743,6 +746,17 @@ img {
   inset: 0;
   padding: 16px;
   overflow: hidden;
+  -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 48px), transparent);
+  mask-image: linear-gradient(180deg, #000 calc(100% - 48px), transparent);
+}
+.tab-item:hover .price.soon .vals,
+.tab-item.hl .price.soon .vals {
+  background: rgba(16, 22, 27, 0.18);
+}
+.tab-item:hover .price.soon .final,
+.tab-item.hl .price.soon .final {
+  color: #10324d;
+  font-weight: 700;
 }
 .tab-preview h3 {
   margin: 0 0 6px;
