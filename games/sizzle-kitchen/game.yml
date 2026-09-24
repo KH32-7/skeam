@@ -24,7 +24,7 @@ achievements:
     icon: achievements/chef_90.png
   - id: perfect_plating
     name: "사진 찍고 싶은 한 그릇"
-    desc: "플레이팅 점수 100점을 받으세요"
+    desc: "그릇 테두리까지 깨끗하게 닦아서 90점 이상을 받으세요"
     icon: achievements/perfect_plating.png
   - id: perfect_doneness
     name: "완벽한 굽기"
