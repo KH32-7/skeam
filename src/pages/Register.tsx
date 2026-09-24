@@ -6,6 +6,28 @@ import { Loading, Price, Tags } from '../components/ui'
 import { fetchLiveGames, fetchLiveSite, useData } from '../data/api'
 import { koDate } from '../format'
 import type { Game, Site } from '../types'
+import { useStore } from '../state/store'
+
+/** "My games": the creator name matches this visitor's SKEAM nickname. */
+function useMyName() {
+  return useStore((s) => s.profile?.name.trim() ?? '')
+}
+const isMine = (g: Game, name: string) => !!name && g.developer.trim().toLowerCase() === name.toLowerCase()
+
+function NotMine({ name }: { name: string }) {
+  return (
+    <div className="notice warn">
+      {name ? (
+        <>
+          제작자 이름이 내 닉네임 <b>{name}</b>과(와) 같은 게임이 없어요. 게임을 등록할 때 쓴 제작자 이름으로{' '}
+          <Link to="/profile">프로필 닉네임</Link>을 바꾸면 여기에 나타나요.
+        </>
+      ) : (
+        <>먼저 SKEAM 닉네임을 정해 주세요.</>
+      )}
+    </div>
+  )
+}
 
 // ---- shape of the form -------------------------------------------------------
 
@@ -215,9 +237,12 @@ export default function Register() {
   )
 }
 
-function EditPicker({ games, site }: { games: Game[]; site: Site }) {
+function EditPicker({ games: all, site }: { games: Game[]; site: Site }) {
+  const me = useMyName()
+  const games = all.filter((g) => isMine(g, me))
   const [id, setId] = useState('')
   const g = games.find((x) => x.id === id)
+  if (!games.length) return <NotMine name={me} />
   return (
     <>
       <div className="panel" style={{ marginBottom: 20 }}>
@@ -236,7 +261,7 @@ function EditPicker({ games, site }: { games: Game[]; site: Site }) {
       {g && (
         <>
           {g.repo && <SyncBox site={site} g={g} />}
-          <GameForm key={g.id} games={games} site={site} existing={g} existingAbout={g.aboutMd} />
+          <GameForm key={g.id} games={all} site={site} existing={g} existingAbout={g.aboutMd} />
         </>
       )}
     </>
@@ -244,7 +269,8 @@ function EditPicker({ games, site }: { games: Game[]; site: Site }) {
 }
 
 function GameForm({ games, site, existing, existingAbout }: { games: Game[]; site: Site; existing?: Game; existingAbout?: string }) {
-  const [f, setF] = useState<Form>(() => (existing ? { ...fromGame(existing, site), about: existingAbout ?? '' } : empty))
+  const me = useMyName()
+  const [f, setF] = useState<Form>(() => (existing ? { ...fromGame(existing, site), about: existingAbout ?? '' } : { ...empty, developer: me }))
   const [idTouched, setIdTouched] = useState(!!existing)
   const [files, setFiles] = useState<Partial<Record<Slot, File>>>({})
   const [crops, setCrops] = useState<Partial<Record<Slot, string>>>({})
@@ -263,12 +289,15 @@ function GameForm({ games, site, existing, existingAbout }: { games: Game[]; sit
     if (!idTouched) set('id', slug(f.titleEn || ''))
   }, [f.titleEn, idTouched])
 
-  const clash = !existing && games.some((g) => g.id === f.id)
+  const taken = existing ? undefined : games.find((g) => g.id === f.id)
+  const clash = !!taken && isMine(taken, me)
+  const othersGame = !!taken && !isMine(taken, me)
 
   const errors = useMemo(() => {
     const e: Record<string, string> = {}
     if (!f.title.trim()) e.title = '제목을 적어 주세요'
     if (!/^[a-z0-9][a-z0-9-]{1,39}$/.test(f.id)) e.id = '영문 소문자, 숫자, -로 2~40자'
+    else if (othersGame) e.id = `이미 ${taken!.developer}의 게임(${taken!.title})이 쓰는 이름이에요. 다른 이름을 써 주세요`
     if (!f.developer.trim()) e.developer = '제작자 이름을 적어 주세요'
     if (!f.short.trim()) e.short = '한 줄 소개를 적어 주세요'
     if (!(Number(f.price) >= 0)) e.price = '0 이상의 숫자'
@@ -283,7 +312,7 @@ function GameForm({ games, site, existing, existingAbout }: { games: Game[]; sit
       if (!a.name.trim()) e[`ach${i}`] = '도전 과제 이름을 적어 주세요'
     })
     return e
-  }, [f, exe, crops.header, existing, achs])
+  }, [f, exe, crops.header, existing, achs, othersGame, taken])
   const ok = Object.keys(errors).length === 0
   const err = (k: string) => showErrors && errors[k] && <span className="err">{errors[k]}</span>
 
@@ -372,7 +401,8 @@ function GameForm({ games, site, existing, existingAbout }: { games: Game[]; sit
                 placeholder="sizzle-kitchen"
               />
               {err('id')}
-              {clash && <span className="err">이미 있는 게임입니다. 등록하면 그 게임을 덮어씁니다.</span>}
+              {clash && <span className="err">내가 이미 올린 게임이에요. 등록하면 그 게임을 덮어씁니다.</span>}
+              {othersGame && !showErrors && <span className="err">다른 사람의 게임이 쓰는 이름이에요.</span>}
             </div>
             <div className="field">
               <label>제작자</label>
@@ -770,7 +800,9 @@ function SubmitStatus({ s, setS }: { s: SubmitState; setS: (s: SubmitState | nul
 
 // ---- patch notes & manual sync ------------------------------------------------
 
-function NewsForm({ games, site }: { games: Game[]; site: Site }) {
+function NewsForm({ games: all, site }: { games: Game[]; site: Site }) {
+  const me = useMyName()
+  const games = all.filter((g) => isMine(g, me))
   const [id, setId] = useState('')
   const [title, setTitle] = useState('')
   const [version, setVersion] = useState('')
@@ -794,6 +826,7 @@ function NewsForm({ games, site }: { games: Game[]; site: Site }) {
       setState(String(e))
     }
   }
+  if (!games.length) return <NotMine name={me} />
   return (
     <div className="panel" style={{ maxWidth: 760 }}>
       <p style={{ marginTop: 0, fontSize: 13 }}>GitHub Release를 쓰는 게임은 Release 설명이 자동으로 패치 노트가 됩니다. 여기서는 직접 쓰고 싶을 때 올리세요.</p>
