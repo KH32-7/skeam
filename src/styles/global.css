@@ -2987,3 +2987,137 @@ button.account-pill {
     right: 12px;
   }
 }
+
+/* ================= tablets & narrow laptops ================= */
+
+/* Prices never break into a column of single characters. */
+.price .final,
+.price .pct {
+  white-space: nowrap;
+}
+.price .orig {
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The row of home tabs scrolls sideways instead of wrapping words. */
+@media (max-width: 1200px) {
+  .tabs-row {
+    gap: 20px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .tabs-row::-webkit-scrollbar {
+    display: none;
+  }
+  .tabs-row button {
+    flex: none;
+    white-space: nowrap;
+    font-size: 17px;
+  }
+}
+
+/* Carousel arrows sit outside the content; bring them inside when there's no room. */
+@media (max-width: 1340px) {
+  .carousel .arrow,
+  .deals-carousel .arrow {
+    z-index: 3;
+    width: 38px;
+    height: 90px;
+    background: rgba(0, 0, 0, 0.45);
+  }
+  .carousel .arrow.l,
+  .deals-carousel .arrow.l {
+    left: 0;
+  }
+  .carousel .arrow.r,
+  .deals-carousel .arrow.r {
+    right: 0;
+  }
+}
+
+@media (max-width: 900px) {
+  /* store nav: menu row, then search across the full width */
+  .store-nav {
+    flex-wrap: wrap;
+    height: auto;
+  }
+  .store-nav .item,
+  .store-nav .wish {
+    height: 40px;
+    white-space: nowrap;
+  }
+  .store-nav .grow {
+    display: none;
+  }
+  .store-search {
+    order: 10;
+    width: 100%;
+    margin: 0 6px 6px;
+  }
+  /* register: the form gets the full width, preview + button below it */
+  .reg-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .reg-aside {
+    position: static;
+  }
+  /* the store page already shows the big image; skip the duplicate */
+  .app-side img.header {
+    display: none;
+  }
+}
+
+/* Tablet portrait (701–900px): keep side-by-side layouts, just narrower. */
+@media (min-width: 701px) and (max-width: 900px) {
+  .feature {
+    grid-template-columns: 7fr 3fr;
+    height: 380px;
+  }
+  .feature .main {
+    aspect-ratio: auto;
+  }
+  .feature .thumbs {
+    grid-template-columns: 1fr;
+  }
+  .feature .thumbs img:nth-child(n + 3) {
+    display: none;
+  }
+  .feature .side h3 {
+    font-size: 18px;
+  }
+  .library {
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
+  .lib-side {
+    position: sticky;
+    height: calc(100vh - 82px - 36px);
+    max-height: none;
+  }
+  .app-top {
+    grid-template-columns: minmax(0, 1fr) 240px;
+  }
+  .row2 {
+    grid-template-columns: 1fr 1fr;
+  }
+  .members {
+    grid-template-columns: 1fr 1fr;
+  }
+  .tag-cloud {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Narrow deal cards: price goes under the title so the title stays readable. */
+@media (max-width: 1100px) {
+  .deal .body {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+  .deal .title {
+    max-width: 100%;
+  }
+}
