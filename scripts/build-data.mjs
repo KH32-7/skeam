@@ -306,7 +306,7 @@ function buildClub(games) {
     members: (() => {
       const listed = (y.members ?? []).map((m) => ({
         name: String(m.name ?? ''),
-        role: String(m.role ?? ''),
+        role: m.role ? String(m.role) : '제작자',
         github: m.github ? String(m.github) : '',
         avatar: m.avatar ? pub(m.avatar) : '',
         bio: String(m.bio ?? ''),

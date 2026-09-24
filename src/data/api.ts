@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
 import type { Club, Game, Site } from '../types'
 
 let cache: Promise<{ games: Game[]; club: Club; site: Site }> | null = null
@@ -19,27 +19,59 @@ export function loadAll() {
   return cache
 }
 
-// ---- status messages, kept in the registration desk's "profiles" sheet ----------
+// ---- status messages & roles, kept in the registration desk's "profiles" sheet ----
+//
+// The desk takes a second or two to answer, so the last list we saw is kept
+// in this browser and shown straight away; the fresh one replaces it when it
+// arrives. Saving updates it on the spot.
 
 export type Profiles = Record<string, { name: string; status: string; role: string }>
-let profilesCache: Promise<Profiles> | null = null
 
-export function loadProfiles(endpoint: string, fresh = false): Promise<Profiles> {
-  if (!endpoint) return Promise.resolve({})
-  if (fresh || !profilesCache)
-    profilesCache = fetch(`${endpoint}?action=profiles`)
-      .then((r) => r.json())
-      .then((j) => (j.ok && j.profiles ? j.profiles : {}))
-      .catch(() => ({}))
-  return profilesCache
+const PROFILES_KEY = 'skeam:profiles'
+let profiles: Profiles = (() => {
+  try {
+    return JSON.parse(localStorage.getItem(PROFILES_KEY) ?? '{}')
+  } catch {
+    return {}
+  }
+})()
+const profileListeners = new Set<() => void>()
+let profilesLoading: Promise<void> | null = null
+
+function setProfiles(next: Profiles) {
+  profiles = next
+  try {
+    localStorage.setItem(PROFILES_KEY, JSON.stringify(next))
+  } catch {
+    /* ignore */
+  }
+  profileListeners.forEach((l) => l())
 }
 
-/** Status messages by lower-cased nickname ({} until loaded or without a desk). */
+export function loadProfiles(endpoint: string, fresh = false): Promise<void> {
+  if (!endpoint) return Promise.resolve()
+  if (fresh || !profilesLoading)
+    profilesLoading = fetch(`${endpoint}?action=profiles`)
+      .then((r) => r.json())
+      .then((j) => {
+        if (j.ok && j.profiles) setProfiles(j.profiles)
+      })
+      .catch(() => {})
+  return profilesLoading
+}
+
+/** Status messages and roles by lower-cased nickname. */
 export function useProfiles() {
   const { data } = useData()
-  const [p, setP] = useState<Profiles>({})
+  const p = useSyncExternalStore(
+    (l) => {
+      profileListeners.add(l)
+      return () => void profileListeners.delete(l)
+    },
+    () => profiles,
+  )
   useEffect(() => {
-    if (data) loadProfiles(data.site.registerEndpoint).then(setP)
+    if (data) loadProfiles(data.site.registerEndpoint)
   }, [data])
   return p
 }
@@ -49,7 +81,8 @@ export async function saveStatus(endpoint: string, auth: { name: string; token: 
   const r = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'status', ...auth, text, role }) })
   const j = await r.json()
   if (!j.ok) throw new Error(j.error)
-  await loadProfiles(endpoint, true)
+  setProfiles({ ...profiles, [auth.name.toLowerCase()]: { name: auth.name, status: text, role } })
+  loadProfiles(endpoint, true)
 }
 
 /** Bypasses the cache; the register page polls this to see a submission go live. */
