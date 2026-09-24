@@ -2,7 +2,7 @@ title: "Jazzy Drum"
 title_en: "Jazzy Drum"
 developer: "SH"
 release: 2026-09-24
-price: 6000
+price: 9000
 discount: 50
 play_url: "https://seohyun-lee.github.io/jazzy-drum/"
 repo: "https://github.com/seohyun-lee/jazzy-drum"
@@ -14,4 +14,4 @@ ai_tools: ["GPT-6 Astra", "Sol"]
 dev_period: "2일"
 ai_note: "채보까지 만들어야 하는 걸 간과했다"
 engine: "Javascript"
-updated: "2026-09-24T14:25:34.037Z"
+updated: "2026-09-24T14:27:21.034Z"
