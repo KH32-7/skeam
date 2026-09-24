@@ -1,0 +1,15 @@
+title: "인형뽑기 시뮬레이터"
+title_en: "Claw Machine Simulator"
+developer: "gamzuha"
+release: 2026-09-24
+price: 12500
+discount: 80
+play_url: "https://gammja17.github.io/claw-tycoon/"
+tags: ["시뮬레이션", "캐주얼", "경영"]
+short: "인형 뽑기 가게를 운영해 손님들을 골탕 먹이고, 남의 가게에서 귀한 제품을 직접 뽑아 판매하세요! ~ 제작자가 인형뽑기에 nn만원 쓰고 열받아서 만든 게임. ~"
+controls: "WASD, 마우스 클릭"
+ai_tools: ["Claude Code"]
+dev_period: "3일"
+ai_note: "버그가 많은데 고치지 않는 것도 묘미 아닐까요"
+engine: "HTML"
+updated: "2026-09-24T12:20:16.964Z"
