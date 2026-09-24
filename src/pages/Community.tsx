@@ -43,7 +43,7 @@ export default function Community() {
                   <img className="av" src={memberAvatar(m)} alt="" />
                   <div>
                     <div className="n">{m.name}</div>
-                    <div className="r">{m.role}</div>
+                    <div className="r">{profiles[m.name.toLowerCase()]?.role || m.role}</div>
                     {(profiles[m.name.toLowerCase()]?.status || m.bio) && <div className="st">{profiles[m.name.toLowerCase()]?.status || m.bio}</div>}
                     <div className="g">게임 {count(m)}개</div>
                   </div>

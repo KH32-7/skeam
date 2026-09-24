@@ -27,6 +27,8 @@ export interface State {
   seenNews: Record<string, string>
   txns: Txn[]
   kiosk: boolean
+  /** Logged-in SKEAM account on this device; lastSync = server time of the last save/load. */
+  session: { name: string; token: string; lastSync: string } | null
 }
 
 const KEY = 'skeam:v1'
@@ -42,6 +44,7 @@ const initial: State = {
   seenNews: {},
   txns: [],
   kiosk: false,
+  session: null,
 }
 
 function load(): State {
@@ -80,9 +83,24 @@ function save() {
 }
 
 export function setState(fn: (s: State) => State) {
+  const before = state
   state = fn(state)
   save()
   listeners.forEach((l) => l())
+  if (state !== before) changeListeners.forEach((l) => l(before, state))
+}
+
+// The account sync listens here to push changes to the server.
+const changeListeners = new Set<(before: State, after: State) => void>()
+export function onChange(l: (before: State, after: State) => void) {
+  changeListeners.add(l)
+  return () => void changeListeners.delete(l)
+}
+
+/** The part of a visitor's state that follows their account between devices. */
+export type Synced = Pick<State, 'profile' | 'wallet' | 'owned' | 'wishlist' | 'achievements' | 'seenNews' | 'txns'>
+export function syncedPart(s: State): Synced {
+  return { profile: s.profile, wallet: s.wallet, owned: s.owned, wishlist: s.wishlist, achievements: s.achievements, seenNews: s.seenNews, txns: s.txns.slice(0, 50) }
 }
 
 export function getState() {

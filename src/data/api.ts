@@ -21,7 +21,7 @@ export function loadAll() {
 
 // ---- status messages, kept in the registration desk's "profiles" sheet ----------
 
-export type Profiles = Record<string, { name: string; status: string }>
+export type Profiles = Record<string, { name: string; status: string; role: string }>
 let profilesCache: Promise<Profiles> | null = null
 
 export function loadProfiles(endpoint: string, fresh = false): Promise<Profiles> {
@@ -44,8 +44,9 @@ export function useProfiles() {
   return p
 }
 
-export async function saveStatus(endpoint: string, name: string, text: string) {
-  const r = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'status', name, text }) })
+/** Status message and member-list role; the desk checks name + token. */
+export async function saveStatus(endpoint: string, auth: { name: string; token: string }, text: string, role: string) {
+  const r = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'status', ...auth, text, role }) })
   const j = await r.json()
   if (!j.ok) throw new Error(j.error)
   await loadProfiles(endpoint, true)

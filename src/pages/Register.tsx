@@ -6,12 +6,14 @@ import { Loading, Price, Tags } from '../components/ui'
 import { fetchLiveGames, fetchLiveSite, useData } from '../data/api'
 import { koDate } from '../format'
 import type { Game, Site } from '../types'
+import { authFields } from '../state/account'
 import { useStore } from '../state/store'
 import { DEFAULT_TAGS, TAG_COLUMNS } from '../data/tags'
 
 /** "My games": the creator name matches this visitor's SKEAM nickname. */
 function useMyName() {
-  return useStore((s) => s.profile?.name.trim() ?? '')
+  // Logged in: the account name is what the desk checks. Otherwise the local nickname.
+  return useStore((s) => s.session?.name ?? s.profile?.name.trim() ?? '')
 }
 const isMine = (g: Game, name: string) => !!name && g.developer.trim().toLowerCase() === name.toLowerCase()
 
@@ -332,6 +334,7 @@ function GameForm({ games, site, existing, existingAbout }: { games: Game[]; sit
   }
 
   const go = async () => {
+    if (site.registerEndpoint && !me) return setSubmit({ stage: 'failed', id: f.id, updated: '', error: '로그인이 필요해요. 새로고침해서 로그인해 주세요.' })
     setShowErrors(true)
     if (!ok) return window.scrollTo({ top: 0, behavior: 'smooth' })
     if (clash && !confirmOverwrite) return setConfirmOverwrite(true)
@@ -341,7 +344,7 @@ function GameForm({ games, site, existing, existingAbout }: { games: Game[]; sit
     const out: { path: string; data: string }[] = []
     const download = f.win === 'link' ? f.link : f.win === 'upload' && !exe ? existing?.download : undefined
     const downloadSize = f.win === 'upload' && exe ? `${Math.max(1, Math.round(exe.size / 1048576))} MB` : f.win === 'link' ? f.downloadSize : f.win === 'upload' ? existing?.downloadSize : undefined
-    out.push({ path: 'game.yml', data: btoa(unescape(encodeURIComponent(toYaml(f, { download, downloadSize, achievements: achList, updated })))) })
+    out.push({ path: 'game.yml', data: btoa(unescape(encodeURIComponent(toYaml(site.registerEndpoint ? { ...f, developer: me } : f, { download, downloadSize, achievements: achList, updated })))) })
     out.push({ path: 'about.md', data: btoa(unescape(encodeURIComponent(f.about || f.short))) })
     for (const s of Object.keys(SLOTS) as Slot[]) if (crops[s]) out.push({ path: `${s}.jpg`, data: b64(crops[s]!) })
     const newShots = shotFiles.map((_, i) => shotCrops[i]).filter(Boolean)
@@ -352,6 +355,7 @@ function GameForm({ games, site, existing, existingAbout }: { games: Game[]; sit
     }
     const payload = {
       action: 'register',
+      ...(site.registerEndpoint ? authFields() : {}),
       id: f.id,
       files: out,
       clear: newShots.length ? ['screenshots/'] : [],
@@ -415,7 +419,8 @@ function GameForm({ games, site, existing, existingAbout }: { games: Game[]; sit
             </div>
             <div className="field">
               <label>제작자</label>
-              <input value={f.developer} onChange={(e) => set('developer', e.target.value)} placeholder="동아리 닉네임" />
+              <input value={f.developer} disabled={!!site.registerEndpoint} onChange={(e) => set('developer', e.target.value)} placeholder="동아리 닉네임" />
+              {site.registerEndpoint && <span className="hint">로그인한 닉네임으로 등록돼요. 이 닉네임만 나중에 수정할 수 있어요.</span>}
               {err('developer')}
             </div>
           </div>
@@ -872,7 +877,7 @@ function NewsForm({ games: all, site }: { games: Game[]; site: Site }) {
     }
     setState('sending')
     try {
-      const res = await fetch(site.registerEndpoint, { method: 'POST', body: JSON.stringify({ action: 'news', id, files: [file] }), headers: { 'Content-Type': 'text/plain;charset=utf-8' } })
+      const res = await fetch(site.registerEndpoint, { method: 'POST', body: JSON.stringify({ action: 'news', ...authFields(), id, files: [file] }), headers: { 'Content-Type': 'text/plain;charset=utf-8' } })
       const j = await res.json()
       setState(j.ok ? 'done' : j.error)
     } catch (e) {

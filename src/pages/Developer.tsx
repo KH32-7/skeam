@@ -34,7 +34,7 @@ export default function Developer() {
           <img src={memberAvatar(member)} alt="" style={{ width: 96, height: 96, objectFit: 'cover', border: '2px solid #4d9a2a' }} />
           <div>
             <div style={{ fontSize: 28, color: '#fff', fontWeight: 700 }}>{member?.name ?? name}</div>
-            {member?.role && <div style={{ color: 'var(--gold)' }}>{member.role}</div>}
+            {(profiles[key]?.role || member?.role) && <div style={{ color: 'var(--gold)' }}>{profiles[key]?.role || member?.role}</div>}
             {(profiles[key]?.status || member?.bio) && <div style={{ marginTop: 4, color: '#c6d4df' }}>{profiles[key]?.status || member?.bio}</div>}
             <div style={{ color: '#8f98a0', fontSize: 13, marginTop: 4 }}>
               SKEAM에 올린 게임 {games.length}개

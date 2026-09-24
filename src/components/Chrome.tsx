@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useData } from '../data/api'
 import { walletWon } from '../format'
+import { login, logout, signup } from '../state/account'
 import { exportData, importData, markNewsSeen, resetForNextVisitor, setKiosk, setProfile, useStore } from '../state/store'
 import { Avatar, AVATAR_COUNT, Modal } from './ui'
 
@@ -105,7 +106,7 @@ export function Chrome() {
             </div>
           )}
         </div>
-        <Link className="account-pill" to="/wallet">
+        <Link className="account-pill" to="/profile">
           <Avatar className="avatar" name={name} index={profile?.avatar ?? 7} size={22} />
           {name} <span className="bal">{walletWon(wallet)}</span>
         </Link>
@@ -138,6 +139,7 @@ export function Chrome() {
 
 function SkeamMenu({ close }: { close: () => void }) {
   const kiosk = useStore((s) => s.kiosk)
+  const session = useStore((s) => s.session)
   const fileRef = useRef<HTMLInputElement>(null)
   const item = { display: 'block', width: '100%', padding: '7px 14px', background: 'none', border: 'none', color: '#dcdedf', textAlign: 'left' as const, fontSize: 13 }
 
@@ -171,6 +173,17 @@ function SkeamMenu({ close }: { close: () => void }) {
       <button style={item} onClick={download}>
         내 데이터 내보내기
       </button>
+      {session && (
+        <button
+          style={{ ...item, borderTop: '1px solid rgba(255,255,255,.1)' }}
+          onClick={() => {
+            if (confirm(`${session.name} 계정에서 로그아웃할까요? 이 기기에 남은 기록은 지워지고, 다시 로그인하면 돌아와요.`)) logout()
+            close()
+          }}
+        >
+          로그아웃 ({session.name})
+        </button>
+      )}
       <button style={item} onClick={() => fileRef.current?.click()}>
         내 데이터 불러오기
       </button>
@@ -213,37 +226,133 @@ export function BottomBar() {
 }
 
 /** First visit: pick a nickname and avatar, like making a Steam account. */
+/**
+ * First visit (or an old nickname-only profile): make a SKEAM account or log
+ * in. Without a registration desk the site falls back to a nickname kept in
+ * this browser only.
+ */
 export function ProfileGate() {
   const profile = useStore((s) => s.profile)
+  const session = useStore((s) => s.session)
   const kiosk = useStore((s) => s.kiosk)
-  const [name, setName] = useState('')
-  const [avatar, setAvatar] = useState(() => Math.floor(Math.random() * AVATAR_COUNT))
-  if (profile || kiosk) return null
-  const ok = name.trim().length > 0
+  const { data } = useData()
+  const [mode, setMode] = useState<'signup' | 'login'>('signup')
+  const [name, setName] = useState(profile?.name ?? '')
+  const [pw, setPw] = useState('')
+  const [pw2, setPw2] = useState('')
+  const [avatar, setAvatar] = useState(() => profile?.avatar ?? Math.floor(Math.random() * AVATAR_COUNT))
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+
+  useEffect(() => {
+    if (profile?.name && !name) setName(profile.name)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.name])
+
+  if (kiosk || session || !data) return null
+  const desk = !!data.site.registerEndpoint
+
+  // No desk: the old local-only nickname.
+  if (!desk) {
+    if (profile) return null
+    const ok = name.trim().length > 0
+    return (
+      <Modal title="SKEAM에 오신 것을 환영합니다" footer={<button className="btn-green" disabled={!ok} onClick={() => setProfile(name.trim().slice(0, 20), avatar)}>시작하기</button>}>
+        <div className="field">
+          <label>닉네임</label>
+          <input autoFocus value={name} maxLength={20} onChange={(e) => setName(e.target.value)} placeholder="예: KH327" />
+        </div>
+      </Modal>
+    )
+  }
+
+  const existing = !!profile // made a nickname before accounts existed
+  const signupOk = name.trim().length > 0 && pw.length >= 4 && pw === pw2
+  const loginOk = name.trim().length > 0 && pw.length >= 4
+
+  const submit = async () => {
+    if (busy || !(mode === 'signup' ? signupOk : loginOk)) return
+    setBusy(true)
+    setErr('')
+    try {
+      if (mode === 'signup') await signup(name.trim(), pw, avatar)
+      else await login(name.trim(), pw)
+      setPw('')
+      setPw2('')
+    } catch (e) {
+      setErr((e as Error).message)
+      if (String((e as Error).message).includes('이미 쓰고 있는 닉네임')) setMode('login')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const title = mode === 'login' ? 'SKEAM 로그인' : existing ? '비밀번호를 만들어 주세요' : 'SKEAM 계정 만들기'
   return (
     <Modal
-      title="SKEAM에 오신 것을 환영합니다"
+      title={title}
       footer={
-        <button className="btn-green" disabled={!ok} onClick={() => setProfile(name.trim().slice(0, 20), avatar)}>
-          시작하기
-        </button>
+        <>
+          <button className="btn-green" disabled={busy || !(mode === 'signup' ? signupOk : loginOk)} onClick={submit}>
+            {busy ? '잠시만요…' : mode === 'signup' ? (existing ? '비밀번호 만들기' : '계정 만들기') : '로그인'}
+          </button>
+        </>
       }
     >
-      <p>KING 동아리가 AI로 만든 게임을 둘러보고, 가짜 돈으로 사고, 바로 플레이하세요. 계정은 이 브라우저에만 저장됩니다.</p>
-      <div className="field">
-        <label>닉네임</label>
-        <input autoFocus value={name} maxLength={20} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && ok && setProfile(name.trim(), avatar)} placeholder="예: KH327" />
+      <div className="tabs-row" style={{ margin: '0 0 14px', gap: 18 }}>
+        <button className={mode === 'signup' ? 'on' : ''} style={{ fontSize: 15 }} onClick={() => (setMode('signup'), setErr(''))}>
+          {existing ? '비밀번호 만들기' : '계정 만들기'}
+        </button>
+        <button className={mode === 'login' ? 'on' : ''} style={{ fontSize: 15 }} onClick={() => (setMode('login'), setErr(''))}>
+          다른 기기에서 쓰던 계정으로 로그인
+        </button>
       </div>
-      <div className="field">
-        <label>아바타</label>
-        <div style={{ display: 'flex', gap: 8 }}>
-          {Array.from({ length: AVATAR_COUNT }, (_, i) => (
-            <button key={i} onClick={() => setAvatar(i)} style={{ padding: 0, border: `2px solid ${i === avatar ? '#66c0f4' : 'transparent'}`, background: 'none' }}>
-              <Avatar name={name || '?'} index={i} size={40} />
-            </button>
-          ))}
+      {mode === 'signup' && (
+        <p style={{ marginTop: 0 }}>
+          {existing
+            ? 'SKEAM에 로그인 기능이 생겼어요. 비밀번호를 만들면 지금 이 브라우저의 지갑, 라이브러리, 플레이 기록이 계정에 저장되고, 컴퓨터·노트북·휴대폰 어디서든 이어서 쓸 수 있어요.'
+            : 'KING 동아리가 AI로 만든 게임을 둘러보고, 가짜 돈으로 사고, 바로 플레이하세요. 계정을 만들면 어느 기기에서든 이어서 쓸 수 있어요.'}
+        </p>
+      )}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          submit()
+        }}
+      >
+        <div className="field">
+          <label>닉네임</label>
+          <input autoFocus={!existing} value={name} maxLength={20} onChange={(e) => setName(e.target.value.replace(/\s/g, ''))} placeholder="예: KH327" autoComplete="username" />
         </div>
-      </div>
+        <div className="field">
+          <label>
+            비밀번호 <small>4자 이상 · 다른 사이트에서 쓰는 비밀번호는 쓰지 마세요</small>
+          </label>
+          <input type="password" autoFocus={existing} value={pw} onChange={(e) => setPw(e.target.value)} autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} />
+        </div>
+        {mode === 'signup' && (
+          <div className="field">
+            <label>비밀번호 확인</label>
+            <input type="password" value={pw2} onChange={(e) => setPw2(e.target.value)} autoComplete="new-password" />
+            {pw2 && pw !== pw2 && <span className="err">비밀번호가 서로 달라요</span>}
+          </div>
+        )}
+        {mode === 'signup' && !existing && (
+          <div className="field">
+            <label>아바타</label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {Array.from({ length: AVATAR_COUNT }, (_, i) => (
+                <button type="button" key={i} onClick={() => setAvatar(i)} style={{ padding: 0, border: `2px solid ${i === avatar ? '#66c0f4' : 'transparent'}`, background: 'none' }}>
+                  <Avatar name={name || '?'} index={i} size={40} />
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        <button type="submit" hidden />
+      </form>
+      {err.trim() && <div className="notice err">{err}</div>}
+      {mode === 'login' && <div style={{ fontSize: 12, color: '#8f98a0' }}>비밀번호를 잊었다면 운영진에게 초기화를 부탁하세요. 데이터는 그대로 남아요.</div>}
     </Modal>
   )
 }
