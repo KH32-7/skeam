@@ -2425,18 +2425,25 @@ input.mini::placeholder {
 .cat-toggle:hover {
   color: #fff;
 }
+/* Columns shrink to fit the menu; long names wrap by word instead of
+   running past the right edge. */
 .cat-cols {
   display: grid;
-  grid-template-columns: repeat(7, auto);
+  grid-template-columns: repeat(7, minmax(0, max-content));
   justify-content: space-between;
-  gap: 0 24px;
+  gap: 0 20px;
+}
+.cat-col {
+  min-width: 0;
 }
 .cat-col a {
   display: block;
   padding: 4px 0;
   color: #dcdedf;
   font-size: 16px;
-  white-space: nowrap;
+  line-height: 1.35;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
 }
 .cat-col a:hover {
   color: #1a9fff;
