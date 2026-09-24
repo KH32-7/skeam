@@ -9,7 +9,7 @@
  * Script properties (Project Settings → Script properties):
  *   GITHUB_TOKEN  fine-grained token for the SKEAM repo only:
  *                 Contents: read & write, Actions: read & write
-^ *   REPO          optional, defaults to KH32-7/skeam
+ *   REPO          optional, defaults to KH32-7/skeam
  *   BRANCH        optional, defaults to main
  */
 
