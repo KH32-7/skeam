@@ -9,3 +9,48 @@ short: "썰고, 볶고, 삶고, 부쳐서 손님 주문을 처리하는 동네 �
 controls: "마우스로 재료를 집고 도구를 사용합니다. 휠로 칼 각도, 우클릭으로 도마 돌리기"
 ai_tools: [Claude Code]
 engine: "HTML 단일 파일"
+achievements:
+  - id: first_serve
+    name: "첫 손님"
+    desc: "영업 모드에서 첫 요리를 서빙하세요"
+    icon: achievements/first_serve.png
+  - id: first_day_closed
+    name: "첫 영업 마감"
+    desc: "첫 영업일을 끝까지 마감하세요"
+    icon: achievements/first_day_closed.png
+  - id: chef_90
+    name: "셰프의 한 접시"
+    desc: "한 요리로 90점 이상을 받으세요"
+    icon: achievements/chef_90.png
+  - id: perfect_plating
+    name: "사진 찍고 싶은 한 그릇"
+    desc: "플레이팅 점수 100점을 받으세요"
+    icon: achievements/perfect_plating.png
+  - id: perfect_doneness
+    name: "완벽한 굽기"
+    desc: "손님이 주문한 굽기에 딱 맞춰 스테이크를 내세요"
+    icon: achievements/perfect_doneness.png
+  - id: combo_5
+    name: "단골 제조기"
+    desc: "5번 연속으로 80점 이상 호평을 받으세요"
+    icon: achievements/combo_5.png
+  - id: request_5
+    name: "세심한 사장님"
+    desc: "손님 요청을 5번 들어주세요"
+    icon: achievements/request_5.png
+  - id: serve_50
+    name: "바쁜 주방"
+    desc: "누적 50그릇을 서빙하세요"
+    icon: achievements/serve_50.png
+  - id: day_7
+    name: "일주일 개근"
+    desc: "DAY 7까지 가게를 운영하세요"
+    icon: achievements/day_7.png
+  - id: rich_200k
+    name: "부자 사장님"
+    desc: "잔고 200,000원을 모으세요"
+    icon: achievements/rich_200k.png
+  - id: menu_master
+    name: "메뉴 마스터"
+    desc: "15가지 메뉴 모두 70점 이상을 받으세요"
+    icon: achievements/menu_master.png
