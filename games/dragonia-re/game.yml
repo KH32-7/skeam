@@ -12,4 +12,4 @@ controls: "WASD 이동, 공격 클릭, Q R F 스킬, SHIFT 대시"
 ai_tools: ["Claude Code"]
 dev_period: "1주"
 engine: "Godot 4.7"
-updated: "2026-09-24T18:18:54.768Z"
+updated: "2026-09-24T18:33:38.406Z"
