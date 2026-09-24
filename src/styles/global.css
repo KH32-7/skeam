@@ -2266,3 +2266,23 @@ input.mini::placeholder {
   width: 18px;
   height: 18px;
 }
+
+.tag-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+}
+.tag-picker .hint {
+  width: 100%;
+}
+.tag-picker .tag {
+  margin: 0;
+  border: none;
+  cursor: pointer;
+}
+.tag-picker .tag.on {
+  background: var(--blue);
+  color: #fff;
+}

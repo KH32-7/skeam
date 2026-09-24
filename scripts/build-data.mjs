@@ -79,6 +79,11 @@ function asList(v) {
   return Array.isArray(v) ? v.map(String) : String(v).split(',').map((s) => s.trim()).filter(Boolean)
 }
 
+// Tags come as "a, b" or YAML lists, and some people write "#a #b" hashtags.
+function tagList(v) {
+  return [...new Set(asList(v).flatMap((t) => (t.includes('#') ? t.split('#') : [t])).map((t) => t.trim()).filter(Boolean))]
+}
+
 function humanSize(bytes) {
   if (!bytes) return ''
   const mb = bytes / 1024 / 1024
@@ -192,7 +197,7 @@ async function buildGame(id) {
     download: y.download ? directDownload(String(y.download)) : '',
     downloadSize: y.download_size ? String(y.download_size) : '',
     version: y.version ? String(y.version) : '',
-    tags: asList(y.tags),
+    tags: tagList(y.tags),
     short: String(y.short ?? ''),
     controls: String(y.controls ?? ''),
     aiTools: asList(y.ai_tools),

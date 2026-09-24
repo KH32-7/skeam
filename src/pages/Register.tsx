@@ -144,6 +144,8 @@ const list = (s: string) =>
     .split(',')
     .map((x) => x.trim())
     .filter(Boolean)
+// Tags also accept "#a #b" hashtag style.
+const tagList = (s: string) => [...new Set(list(s).flatMap((t) => (t.includes('#') ? t.split('#') : [t])).map((t) => t.trim()).filter(Boolean))]
 
 function toYaml(f: Form, extra: { download?: string; downloadSize?: string; achievements: Ach[]; updated: string }) {
   const L: string[] = []
@@ -158,7 +160,7 @@ function toYaml(f: Form, extra: { download?: string; downloadSize?: string; achi
   if (extra.download) L.push(`download: ${q(extra.download)}`)
   if (extra.downloadSize) L.push(`download_size: ${q(extra.downloadSize)}`)
   if (f.win !== 'none' && f.version) L.push(`version: ${q(f.version)}`)
-  L.push(`tags: [${list(f.tags).map(q).join(', ')}]`)
+  L.push(`tags: [${tagList(f.tags).map(q).join(', ')}]`)
   L.push(`short: ${q(f.short)}`)
   if (f.controls) L.push(`controls: ${q(f.controls)}`)
   L.push(`ai_tools: [${list(f.aiTools).map(q).join(', ')}]`)
@@ -285,6 +287,12 @@ function GameForm({ games, site, existing, existingAbout }: { games: Game[]; sit
   const [confirmOverwrite, setConfirmOverwrite] = useState(false)
 
   const set = <K extends keyof Form>(k: K, v: Form[K]) => setF((x) => ({ ...x, [k]: v }))
+  // Tags already used on SKEAM, most common first, so creators reuse them.
+  const knownTags = useMemo(() => {
+    const n = new Map<string, number>()
+    games.forEach((g) => g.tags.forEach((t) => n.set(t, (n.get(t) ?? 0) + 1)))
+    return [...n.entries()].sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0])).map(([t]) => t)
+  }, [games])
   useEffect(() => {
     if (!idTouched) set('id', slug(f.titleEn || ''))
   }, [f.titleEn, idTouched])
@@ -435,6 +443,25 @@ function GameForm({ games, site, existing, existingAbout }: { games: Game[]; sit
               태그 <small>쉼표로 구분</small>
             </label>
             <input value={f.tags} onChange={(e) => set('tags', e.target.value)} placeholder="요리, 시뮬레이션, 캐주얼" />
+            {knownTags.length > 0 && (
+              <div className="tag-picker">
+                <span className="hint">다른 게임들이 쓰는 태그 (누르면 추가·빼기)</span>
+                {knownTags.map((t) => {
+                  const on = tagList(f.tags).includes(t)
+                  return (
+                    <button
+                      key={t}
+                      type="button"
+                      className={`tag ${on ? 'on' : 'plain'}`}
+                      onClick={() => set('tags', (on ? tagList(f.tags).filter((x) => x !== t) : [...tagList(f.tags), t]).join(', '))}
+                    >
+                      {on ? '✓ ' : '+ '}
+                      {t}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
           </div>
           <div className="field">
             <label>조작법</label>
@@ -656,7 +683,7 @@ function GameForm({ games, site, existing, existingAbout }: { games: Game[]; sit
           <div style={{ fontSize: 12, color: '#8f98a0', marginBottom: 6 }}>
             {koDate(f.release)} · {f.developer || '제작자'}
           </div>
-          <Tags tags={list(f.tags)} />
+          <Tags tags={tagList(f.tags)} />
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
             <Price game={preview} />
           </div>
