@@ -68,6 +68,10 @@ interface Form {
   downloadSize: string
   about: string
   release: string
+  /** Coming soon: not playable yet, can be wishlisted. */
+  soon: boolean
+  releaseMode: 'date' | 'month' | 'tba'
+  releaseMonth: string
 }
 
 const empty: Form = {
@@ -93,6 +97,9 @@ const empty: Form = {
   downloadSize: '',
   about: '',
   release: new Date().toISOString().slice(0, 10),
+  soon: false,
+  releaseMode: 'date',
+  releaseMonth: new Date().toISOString().slice(0, 7),
 }
 
 const SLOTS = {
@@ -137,7 +144,10 @@ function fromGame(g: Game, site: Site): Form {
     version: g.version || '1.0.0',
     downloadSize: g.downloadSize,
     about: '', // filled from about.md below
-    release: g.release,
+    release: /^\d{4}-\d{2}-\d{2}$/.test(g.release) ? g.release : empty.release,
+    soon: g.comingSoon,
+    releaseMode: !g.comingSoon || /^\d{4}-\d{2}-\d{2}$/.test(g.release) ? 'date' : /^\d{4}-\d{2}$/.test(g.release) ? 'month' : 'tba',
+    releaseMonth: /^\d{4}-\d{2}/.test(g.release) ? g.release.slice(0, 7) : empty.releaseMonth,
   }
 }
 
@@ -155,7 +165,12 @@ function toYaml(f: Form, extra: { download?: string; downloadSize?: string; achi
   L.push(`title: ${q(f.title)}`)
   if (f.titleEn) L.push(`title_en: ${q(f.titleEn)}`)
   L.push(`developer: ${q(f.developer)}`)
-  L.push(`release: ${f.release}`)
+  if (!f.soon) L.push(`release: ${f.release}`)
+  else {
+    L.push('coming_soon: true')
+    if (f.releaseMode === 'date') L.push(`release: ${f.release}`)
+    if (f.releaseMode === 'month') L.push(`release: ${q(f.releaseMonth)}`)
+  }
   L.push(`price: ${Number(f.price) || 0}`)
   if (Number(f.discount)) L.push(`discount: ${Number(f.discount)}`)
   if (f.playUrl) L.push(`play_url: ${q(f.playUrl)}`)
@@ -312,7 +327,7 @@ function GameForm({ games, site, existing, existingAbout }: { games: Game[]; sit
     if (!f.developer.trim()) e.developer = '제작자 이름을 적어 주세요'
     if (!f.short.trim()) e.short = '한 줄 소개를 적어 주세요'
     if (!(Number(f.price) >= 0)) e.price = '0 이상의 숫자'
-    if (!f.playUrl && f.win === 'none') e.playUrl = '브라우저 주소나 Windows 다운로드 중 하나는 있어야 합니다'
+    if (!f.soon && !f.playUrl && f.win === 'none') e.playUrl = '브라우저 주소나 Windows 다운로드 중 하나는 있어야 합니다 (아직 없으면 "출시 예정 게임"을 체크하세요)'
     if (f.playUrl && !/^https:\/\//.test(f.playUrl)) e.playUrl = 'https://로 시작하는 주소'
     if (f.win === 'repo' && !/github\.com\/[^/]+\/[^/]+/.test(f.repo)) e.repo = 'https://github.com/아이디/레포 형태'
     if (f.win === 'upload' && !exe && !existing?.download) e.exe = 'zip 파일을 골라 주세요'
@@ -440,9 +455,45 @@ function GameForm({ games, site, existing, existingAbout }: { games: Game[]; sit
               <input type="number" min={0} max={90} value={f.discount} onChange={(e) => set('discount', e.target.value)} />
             </div>
             <div className="field">
-              <label>출시일</label>
-              <input type="date" value={f.release} onChange={(e) => set('release', e.target.value)} />
+              <label>{f.soon ? '출시 예정일' : '출시일'}</label>
+              {f.soon && f.releaseMode === 'month' ? (
+                <input type="month" value={f.releaseMonth} onChange={(e) => set('releaseMonth', e.target.value)} />
+              ) : f.soon && f.releaseMode === 'tba' ? (
+                <input value="출시일 미정" disabled />
+              ) : (
+                <input type="date" value={f.release} onChange={(e) => set('release', e.target.value)} />
+              )}
             </div>
+          </div>
+          <div className="field soon-box">
+            <label style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: 'pointer', color: '#fff' }}>
+              <input type="checkbox" checked={f.soon} onChange={(e) => set('soon', e.target.checked)} />
+              출시 예정 게임이에요 (아직 플레이할 수 없고, 찜만 할 수 있어요)
+            </label>
+            {f.soon && (
+              <>
+                <div style={{ display: 'flex', gap: 16, fontSize: 13, flexWrap: 'wrap' }}>
+                  {(
+                    [
+                      ['date', '날짜까지 정확히'],
+                      ['month', '월까지만 (예: 2026년 10월)'],
+                      ['tba', '아직 미정'],
+                    ] as const
+                  ).map(([v, l]) => (
+                    <label key={v} style={{ display: 'flex', gap: 6, cursor: 'pointer' }}>
+                      <input type="radio" checked={f.releaseMode === v} onChange={() => set('releaseMode', v)} />
+                      {l}
+                    </label>
+                  ))}
+                </div>
+                <span className="hint">
+                  {f.releaseMode === 'date'
+                    ? '그 날짜가 되면 자동으로 출시돼요. 게임 주소나 다운로드는 그 전에 "내 게임 수정"에서 채워 두세요.'
+                    : '출시할 때 "내 게임 수정"에서 이 체크를 끄고 게임 주소를 넣으면 돼요.'}{' '}
+                  찜한 사람들에게 출시 알림이 가요.
+                </span>
+              </>
+            )}
           </div>
           <div className="field">
             <label>

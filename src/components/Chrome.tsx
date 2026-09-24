@@ -3,11 +3,19 @@ import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useData } from '../data/api'
 import { walletWon } from '../format'
 import { login, logout, signup } from '../state/account'
-import { exportData, importData, markNewsSeen, resetForNextVisitor, setKiosk, setProfile, useStore } from '../state/store'
-import { Avatar, AVATAR_COUNT, Modal } from './ui'
+import { exportData, importData, markNewsSeen, markReleaseSeen, resetForNextVisitor, setKiosk, setProfile, useStore } from '../state/store'
+import { Avatar, AVATAR_COUNT, Modal, toast } from './ui'
 
 export function newsKey(n: { date: string; title: string }) {
   return `${n.date}|${n.title}`
+}
+
+/** Games wishlisted while coming soon that have since come out. */
+export function useReleased() {
+  const { data } = useData()
+  const watch = useStore((s) => s.watchRelease)
+  if (!data || !watch?.length) return []
+  return data.games.filter((g) => watch.includes(g.id) && !g.comingSoon)
 }
 
 function useUpdates() {
@@ -25,7 +33,9 @@ export function Chrome() {
   const nav = useNavigate()
   const loc = useLocation()
   const updates = useUpdates()
-  const [menu, setMenu] = useState<'skeam' | 'bell' | null>(null)
+  const released = useReleased()
+  const alerts = updates.length + released.length
+  const [menu, setMenu] = useState<'account' | 'bell' | null>(null)
   const isLibrary = loc.pathname.startsWith('/library')
   const isCommunity = loc.pathname.startsWith('/community')
   const isStore = !isLibrary && !isCommunity && !loc.pathname.startsWith('/profile')
@@ -34,6 +44,16 @@ export function Chrome() {
   useEffect(() => {
     setMenu(null)
   }, [loc.pathname])
+
+  // Click anywhere else closes the open dropdown.
+  useEffect(() => {
+    if (!menu) return
+    const h = (e: MouseEvent) => {
+      if (!(e.target as HTMLElement).closest('.account-menu, .account-pill, .chrome-btn.bell, .modal')) setMenu(null)
+    }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [menu])
 
   return (
     <header className="chrome">
@@ -54,10 +74,6 @@ export function Chrome() {
             <img src="./skeam-icon.svg" alt="" />
             SKEAM
           </a>
-          <button className="brand-menu" aria-label="SKEAM 메뉴" onClick={() => setMenu(menu === 'skeam' ? null : 'skeam')}>
-            ▾
-          </button>
-          {menu === 'skeam' && <SkeamMenu close={() => setMenu(null)} />}
         </div>
         <Link className="menu-link" to="/library">
           보기
@@ -78,16 +94,25 @@ export function Chrome() {
           </svg>
         </button>
         <div style={{ position: 'relative' }}>
-          <button className={`chrome-btn bell ${updates.length ? 'has' : ''}`} title="알림" onClick={() => setMenu(menu === 'bell' ? null : 'bell')}>
+          <button className={`chrome-btn bell ${alerts ? 'has' : ''}`} title="알림" onClick={() => setMenu(menu === 'bell' ? null : 'bell')}>
             <svg width="12" height="13" viewBox="0 0 12 13" fill="#fff">
               <path d="M6 0a1 1 0 011 1v.6A4 4 0 0110 5.5V9l1.5 1.5v.5H.5v-.5L2 9V5.5A4 4 0 015 1.6V1a1 1 0 011-1zM4.5 12h3a1.5 1.5 0 01-3 0z" />
             </svg>
-            {updates.length > 0 && <span className="dot">{updates.length}</span>}
+            {alerts > 0 && <span className="dot">{alerts}</span>}
           </button>
           {menu === 'bell' && (
             <div className="modal" style={{ position: 'absolute', right: 0, top: 28, width: 320, zIndex: 60 }}>
               <div className="mb">
-                {updates.length === 0 && <div style={{ color: '#8f98a0' }}>새 알림이 없습니다.</div>}
+                {alerts === 0 && <div style={{ color: '#8f98a0' }}>새 알림이 없습니다.</div>}
+                {released.map((g) => (
+                  <a key={g.id} href={`#/app/${g.id}`} onClick={() => markReleaseSeen([g.id])} style={{ display: 'flex', gap: 10, padding: '6px 0', color: '#c7d5e0' }}>
+                    <img src={g.images.header} alt="" style={{ width: 92, height: 43, objectFit: 'cover' }} />
+                    <span style={{ fontSize: 12 }}>
+                      <b style={{ color: '#a4d007', display: 'block' }}>찜한 게임이 출시됐어요!</b>
+                      {g.title}
+                    </span>
+                  </a>
+                ))}
                 {updates.map((g) => (
                   <a
                     key={g.id}
@@ -106,10 +131,13 @@ export function Chrome() {
             </div>
           )}
         </div>
-        <Link className="account-pill" to="/profile">
-          <Avatar className="avatar" name={name} index={profile?.avatar ?? 7} size={22} />
-          {name} <span className="bal">{walletWon(wallet)}</span>
-        </Link>
+        <div style={{ position: 'relative' }}>
+          <button className={`account-pill ${menu === 'account' ? 'open' : ''}`} onClick={() => setMenu(menu === 'account' ? null : 'account')}>
+            <Avatar className="avatar" name={name} index={profile?.avatar ?? 7} size={22} />
+            {name} <span className="caret">▾</span> <span className="bal">{walletWon(wallet)}</span>
+          </button>
+          {menu === 'account' && <AccountMenu name={name} close={() => setMenu(null)} />}
+        </div>
       </div>
       <nav className="chrome-nav">
         <div className="arrows">
@@ -137,7 +165,8 @@ export function Chrome() {
   )
 }
 
-function SkeamMenu({ close }: { close: () => void }) {
+/** The account pill's dropdown: profile first, logout last. */
+function AccountMenu({ name, close }: { name: string; close: () => void }) {
   const kiosk = useStore((s) => s.kiosk)
   const session = useStore((s) => s.session)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -153,7 +182,11 @@ function SkeamMenu({ close }: { close: () => void }) {
   }
 
   return (
-    <div style={{ position: 'absolute', top: 26, left: 0, zIndex: 60, width: 220, padding: '6px 0', background: '#3d4450', boxShadow: '0 6px 16px rgba(0,0,0,.6)' }}>
+    <div className="account-menu">
+      <Link style={{ ...item, color: '#fff', fontWeight: 700 }} to="/profile" onClick={close}>
+        내 프로필 ({name})
+      </Link>
+      <div className="sep" />
       <Link style={item} to="/wallet" onClick={close}>
         지갑에 자금 추가
       </Link>
@@ -173,17 +206,6 @@ function SkeamMenu({ close }: { close: () => void }) {
       <button style={item} onClick={download}>
         내 데이터 내보내기
       </button>
-      {session && (
-        <button
-          style={{ ...item, borderTop: '1px solid rgba(255,255,255,.1)' }}
-          onClick={() => {
-            if (confirm(`${session.name} 계정에서 로그아웃할까요? 이 기기에 남은 기록은 지워지고, 다시 로그인하면 돌아와요.`)) logout()
-            close()
-          }}
-        >
-          로그아웃 ({session.name})
-        </button>
-      )}
       <button style={item} onClick={() => fileRef.current?.click()}>
         내 데이터 불러오기
       </button>
@@ -204,6 +226,17 @@ function SkeamMenu({ close }: { close: () => void }) {
           close()
         }}
       />
+      {session && (
+        <button
+          style={{ ...item, borderTop: '1px solid rgba(255,255,255,.1)' }}
+          onClick={() => {
+            if (confirm(`${session.name} 계정에서 로그아웃할까요? 이 기기에 남은 기록은 지워지고, 다시 로그인하면 돌아와요.`)) logout()
+            close()
+          }}
+        >
+          로그아웃 ({session.name})
+        </button>
+      )}
     </div>
   )
 }
@@ -355,6 +388,24 @@ export function ProfileGate() {
       {mode === 'login' && <div style={{ fontSize: 12, color: '#8f98a0' }}>비밀번호를 잊었다면 운영진에게 초기화를 부탁하세요. 데이터는 그대로 남아요.</div>}
     </Modal>
   )
+}
+
+/** Pops a toast once per visit for each wishlisted game that just came out. */
+export function ReleaseNotifier() {
+  const released = useReleased()
+  useEffect(() => {
+    for (const g of released) {
+      const key = `skeam:toasted:${g.id}`
+      try {
+        if (sessionStorage.getItem(key)) continue
+        sessionStorage.setItem(key, '1')
+      } catch {
+        /* ignore */
+      }
+      toast({ title: '찜한 게임이 출시됐어요!', body: g.title, icon: g.images.capsule })
+    }
+  }, [released.map((g) => g.id).join()]) // eslint-disable-line react-hooks/exhaustive-deps
+  return null
 }
 
 /** Kiosk mode: after 3 idle minutes, reset for the next visitor. */

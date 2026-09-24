@@ -20,6 +20,8 @@ export interface Game {
   titleEn: string
   developer: string
   release: string
+  /** Not out yet: can be wishlisted, not bought. release may be '2026-10', '2026-10-15' or ''. */
+  comingSoon: boolean
   price: number
   discount: number
   finalPrice: number

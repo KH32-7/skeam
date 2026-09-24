@@ -41,6 +41,7 @@ function merge(local: Synced, remote: Partial<Synced>): Synced {
     wishlist: [...new Set([...(remote.wishlist ?? []), ...local.wishlist])],
     achievements,
     seenNews: { ...local.seenNews, ...(remote.seenNews ?? {}) },
+    watchRelease: [...new Set([...(remote.watchRelease ?? []), ...(local.watchRelease ?? [])])],
     txns: remote.txns ?? local.txns,
   }
 }
@@ -72,14 +73,14 @@ export async function login(name: string, password: string) {
 }
 
 function initialLike(): State {
-  return { ...getState(), wallet: 0, owned: {}, wishlist: [], achievements: {}, seenNews: {}, txns: [] }
+  return { ...getState(), wallet: 0, owned: {}, wishlist: [], achievements: {}, seenNews: {}, watchRelease: [], txns: [] }
 }
 
 export async function logout() {
   const s = getState().session
   if (s) call('logout', { name: s.name, token: s.token }).catch(() => {})
   // Leave nothing behind on a shared computer.
-  setState((st) => ({ ...st, session: null, profile: null, wallet: 0.64, owned: {}, wishlist: [], achievements: {}, seenNews: {}, txns: [] }))
+  setState((st) => ({ ...st, session: null, profile: null, wallet: 0.64, owned: {}, wishlist: [], achievements: {}, seenNews: {}, watchRelease: [], txns: [] }))
 }
 
 // ---- background sync ---------------------------------------------------------

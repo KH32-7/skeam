@@ -25,6 +25,8 @@ export interface State {
   wishlist: string[]
   achievements: Record<string, Record<string, number>>
   seenNews: Record<string, string>
+  /** Wishlisted while still coming soon: tell the visitor when these come out. */
+  watchRelease: string[]
   txns: Txn[]
   kiosk: boolean
   /** Logged-in SKEAM account on this device; lastSync = server time of the last save/load. */
@@ -42,6 +44,7 @@ const initial: State = {
   wishlist: [],
   achievements: {},
   seenNews: {},
+  watchRelease: [],
   txns: [],
   kiosk: false,
   session: null,
@@ -98,9 +101,9 @@ export function onChange(l: (before: State, after: State) => void) {
 }
 
 /** The part of a visitor's state that follows their account between devices. */
-export type Synced = Pick<State, 'profile' | 'wallet' | 'owned' | 'wishlist' | 'achievements' | 'seenNews' | 'txns'>
+export type Synced = Pick<State, 'profile' | 'wallet' | 'owned' | 'wishlist' | 'achievements' | 'seenNews' | 'watchRelease' | 'txns'>
 export function syncedPart(s: State): Synced {
-  return { profile: s.profile, wallet: s.wallet, owned: s.owned, wishlist: s.wishlist, achievements: s.achievements, seenNews: s.seenNews, txns: s.txns.slice(0, 50) }
+  return { profile: s.profile, wallet: s.wallet, owned: s.owned, wishlist: s.wishlist, achievements: s.achievements, seenNews: s.seenNews, watchRelease: s.watchRelease ?? [], txns: s.txns.slice(0, 50) }
 }
 
 export function getState() {
@@ -157,11 +160,21 @@ export function purchase(items: { id: string; title: string; price: number }[]) 
   return true
 }
 
-export function toggleWishlist(id: string) {
-  setState((s) => ({
-    ...s,
-    wishlist: s.wishlist.includes(id) ? s.wishlist.filter((w) => w !== id) : [...s.wishlist, id],
-  }))
+export function toggleWishlist(id: string, comingSoon = false) {
+  setState((s) => {
+    const on = !s.wishlist.includes(id)
+    const watch = (s.watchRelease ?? []).filter((w) => w !== id)
+    return {
+      ...s,
+      wishlist: on ? [...s.wishlist, id] : s.wishlist.filter((w) => w !== id),
+      watchRelease: on && comingSoon ? [...watch, id] : watch,
+    }
+  })
+}
+
+/** The visitor has seen that these watched games came out. */
+export function markReleaseSeen(ids: string[]) {
+  setState((s) => ({ ...s, watchRelease: (s.watchRelease ?? []).filter((w) => !ids.includes(w)) }))
 }
 
 export function addPlaytime(id: string, sec: number) {

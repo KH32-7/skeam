@@ -2,7 +2,16 @@ import { useEffect, useState, type ReactNode } from 'react'
 import type { Game } from '../types'
 import { won } from '../format'
 
-export function Price({ game, className = '' }: { game: Pick<Game, 'price' | 'discount' | 'finalPrice'>; className?: string }) {
+export function Price({ game, className = '' }: { game: Pick<Game, 'price' | 'discount' | 'finalPrice'> & { comingSoon?: boolean }; className?: string }) {
+  if (game.comingSoon) {
+    return (
+      <span className={`price soon ${className}`}>
+        <span className="vals">
+          <span className="final">출시 예정</span>
+        </span>
+      </span>
+    )
+  }
   if (game.price === 0) {
     return (
       <span className={`price free ${className}`}>

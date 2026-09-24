@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { StoreNav } from '../components/StoreNav'
 import { Loading, Price } from '../components/ui'
 import { useGame } from '../data/api'
-import { platformLabel, walletWon, won } from '../format'
+import { platformText, walletWon, won } from '../format'
 import { purchase, round2, useStore } from '../state/store'
 
 export default function Checkout() {
@@ -21,6 +21,18 @@ export default function Checkout() {
     return (
       <div className="store">
         <div className="store-wrap empty-state">게임을 찾을 수 없습니다.</div>
+      </div>
+    )
+
+  if (g.comingSoon)
+    return (
+      <div className="store">
+        <div className="store-wrap">
+          <StoreNav />
+          <div className="notice warn" style={{ marginTop: 20 }}>
+            {g.title}은(는) 아직 출시 전이에요. <Link to={`/app/${g.id}`}>상점 페이지</Link>에서 찜해 두면 출시될 때 알려 드려요.
+          </div>
+        </div>
       </div>
     )
 
@@ -67,7 +79,7 @@ export default function Checkout() {
               <img src={g.images.header} alt="" />
               <div>
                 <div className="t">{g.title}</div>
-                <div style={{ fontSize: 12, color: '#8f98a0' }}>{platformLabel[g.platform]}</div>
+                <div style={{ fontSize: 12, color: '#8f98a0' }}>{platformText(g)}</div>
               </div>
               <Price game={g} />
             </div>

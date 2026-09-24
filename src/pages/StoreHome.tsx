@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { StoreNav } from '../components/StoreNav'
 import { Loading, Price } from '../components/ui'
 import { useData } from '../data/api'
-import { koDate } from '../format'
+import { koDate, koRelease } from '../format'
 import { useStore } from '../state/store'
 import type { Game } from '../types'
 
@@ -34,8 +34,9 @@ function Empty() {
 function Home({ games, featuredIds }: { games: Game[]; featuredIds: string[] }) {
   const byNew = useMemo(() => [...games].sort((a, b) => b.release.localeCompare(a.release)), [games])
   const featured = featuredIds.length ? featuredIds.map((id) => games.find((g) => g.id === id)!).filter(Boolean) : byNew.slice(0, 12)
-  const deals = games.filter((g) => g.discount > 0)
-  const dealsOrNew = deals.length ? deals : byNew.slice(0, 6)
+  const out = byNew.filter((g) => !g.comingSoon)
+  const deals = out.filter((g) => g.discount > 0)
+  const dealsOrNew = deals.length ? deals : out.slice(0, 6)
 
   return (
     <>
@@ -120,6 +121,13 @@ function Carousel({ games }: { games: Game[] }) {
 
 function FeatureReason({ g }: { g: Game }) {
   const owned = useStore((s) => !!s.owned[g.id])
+  if (g.comingSoon)
+    return (
+      <div>
+        <b>출시 예정</b>
+        {koRelease(g.release)}
+      </div>
+    )
   if (owned)
     return (
       <div>
@@ -188,6 +196,7 @@ function Deals({ games }: { games: Game[] }) {
 
 const TABS = [
   { key: 'new', label: '인기 신규 출시 게임' },
+  { key: 'soon', label: '인기 출시 예정 게임' },
   { key: 'web', label: '브라우저에서 플레이' },
   { key: 'win', label: 'Windows 게임' },
   { key: 'sale', label: '특별 할인' },
@@ -197,7 +206,10 @@ const TABS = [
 function TabbedList({ games }: { games: Game[] }) {
   const [tab, setTab] = useState<(typeof TABS)[number]['key']>('new')
   const list = useMemo(() => {
-    const sorted = [...games].sort((a, b) => b.release.localeCompare(a.release))
+    if (tab === 'soon')
+      // Soonest first; "미정" at the end.
+      return games.filter((g) => g.comingSoon).sort((a, b) => (a.release || '9999').localeCompare(b.release || '9999'))
+    const sorted = games.filter((g) => !g.comingSoon).sort((a, b) => b.release.localeCompare(a.release))
     switch (tab) {
       case 'web':
         return sorted.filter((g) => g.platform !== 'windows')
@@ -235,7 +247,7 @@ function TabbedList({ games }: { games: Game[] }) {
               <div>
                 <div className="t">{g.title}</div>
                 <div className="tags">{g.tags.join(', ')}</div>
-                <div className="rel">출시: {koDate(g.release)}</div>
+                <div className="rel">{g.comingSoon ? `출시 예정: ${koRelease(g.release)}` : `출시: ${koDate(g.release)}`}</div>
               </div>
               <Price game={g} />
             </Link>

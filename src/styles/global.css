@@ -2553,3 +2553,52 @@ input.mini::placeholder {
   line-height: 1.4;
   word-break: break-all;
 }
+
+.price.soon .vals {
+  background: rgba(103, 193, 245, 0.2);
+}
+.price.soon .final {
+  color: #67c1f5;
+  font-size: 13px;
+}
+
+.soon-box {
+  padding: 10px 12px;
+  background: rgba(103, 193, 245, 0.08);
+  border-left: 3px solid #67c1f5;
+}
+
+/* account pill dropdown (top right) */
+button.account-pill {
+  border: none;
+  font-family: inherit;
+  cursor: pointer;
+}
+.account-pill.open {
+  background: #4a5260;
+  color: #fff;
+}
+.account-pill .caret {
+  font-size: 10px;
+  color: #8f98a0;
+}
+.account-menu {
+  position: absolute;
+  top: 26px;
+  right: 0;
+  z-index: 60;
+  width: 230px;
+  padding: 6px 0;
+  background: #3d4450;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.6);
+}
+.account-menu a:hover,
+.account-menu button:hover {
+  background: #4a5363 !important;
+  color: #fff !important;
+}
+.account-menu .sep {
+  height: 1px;
+  margin: 4px 0;
+  background: rgba(255, 255, 255, 0.1);
+}

@@ -2,7 +2,7 @@ import { Link, useParams } from 'react-router-dom'
 import { StoreNav } from '../components/StoreNav'
 import { Loading, Price } from '../components/ui'
 import { useData, useProfiles } from '../data/api'
-import { koDate, platformLabel } from '../format'
+import { koDate, platformText } from '../format'
 import type { Club, Game } from '../types'
 
 export function memberAvatar(m: Club['members'][number] | undefined) {
@@ -68,7 +68,7 @@ export function GameList({ games, empty }: { games: Game[]; empty: string }) {
           <div>
             <div className="t">{g.title}</div>
             <div className="plat">
-              {platformLabel[g.platform]} · {g.tags.slice(0, 3).join(', ')}
+              {platformText(g)} · {g.tags.slice(0, 3).join(', ')}
             </div>
           </div>
           <div style={{ fontSize: 12, color: '#8f98a0' }}>{koDate(g.release)}</div>

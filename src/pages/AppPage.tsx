@@ -4,7 +4,7 @@ import { Reviews, reviewLabel, useReviews } from '../components/Reviews'
 import { StoreNav } from '../components/StoreNav'
 import { Loading, Price, Tags } from '../components/ui'
 import { useGame } from '../data/api'
-import { koDate, platformLabel } from '../format'
+import { koDate, koRelease, platformText } from '../format'
 import { NONE, toggleWishlist, useStore } from '../state/store'
 import type { Game } from '../types'
 import { developerPath } from './Developer'
@@ -69,9 +69,9 @@ function App({ g, endpoint }: { g: Game; endpoint: string }) {
               </>
             )}
             <span>플랫폼:</span>
-            <span className="v pos">{platformLabel[g.platform]}</span>
+            <span className="v pos">{platformText(g)}</span>
             <span>출시일:</span>
-            <span className="v">{koDate(g.release)}</span>
+            <span className="v">{g.comingSoon ? `${koRelease(g.release)} (출시 예정)` : koDate(g.release)}</span>
             <span>제작자:</span>
             <span className="v">
               <Link to={developerPath(g.developer)}>{g.developer}</Link>
@@ -99,7 +99,7 @@ function App({ g, endpoint }: { g: Game; endpoint: string }) {
       </div>
 
       <div style={{ display: 'flex', gap: 8, margin: '14px 0 0' }}>
-        <button className="btn-blue" onClick={() => toggleWishlist(g.id)}>
+        <button className="btn-blue" onClick={() => toggleWishlist(g.id, g.comingSoon)}>
           {wished ? '✓ 찜 목록에 있음' : '찜 목록에 추가'}
         </button>
         {g.repo && (
@@ -111,7 +111,18 @@ function App({ g, endpoint }: { g: Game; endpoint: string }) {
 
       <div className="app-body">
         <div>
-          {owned ? (
+          {g.comingSoon ? (
+            <div className="buy-box">
+              <h2>{g.title} 출시 예정</h2>
+              <div className="plat">출시일: {koRelease(g.release)}</div>
+              <div className="plat" style={{ marginTop: 6 }}>찜 목록에 추가하면 출시될 때 알림으로 알려 드려요.</div>
+              <div className="buy-action">
+                <button className={wished ? 'btn-gray' : 'btn-green'} onClick={() => toggleWishlist(g.id, true)}>
+                  {wished ? '✓ 찜 목록에 있음' : '★ 찜 목록에 추가'}
+                </button>
+              </div>
+            </div>
+          ) : owned ? (
             <div className="owned-banner">
               <span>
                 <span className="badge">SKEAM에 있음</span>
@@ -124,7 +135,7 @@ function App({ g, endpoint }: { g: Game; endpoint: string }) {
           ) : (
             <div className="buy-box">
               <h2>{g.price === 0 ? `${g.title} 무료로 받기` : `${g.title} 구매`}</h2>
-              <div className="plat">{platformLabel[g.platform]}</div>
+              <div className="plat">{platformText(g)}</div>
               {g.discount > 0 && <div className="plat" style={{ color: '#beee11' }}>특별 할인 중!</div>}
               <div className="buy-action">
                 <Price game={g} />
@@ -198,7 +209,7 @@ function App({ g, endpoint }: { g: Game; endpoint: string }) {
             <div className="plat-badge">
               <span className="ico">{g.platform === 'windows' ? '⊞' : '◎'}</span>
               <span>
-                <b>{platformLabel[g.platform]}</b>
+                <b>{platformText(g)}</b>
                 {g.platform === 'windows' ? '구매 후 라이브러리에서 설치' : '설치 없이 바로 실행'}
               </span>
             </div>

@@ -69,6 +69,17 @@ function publish(id, src) {
   return `g/${id}/${rel}`
 }
 
+// Coming-soon games may give "2026-10-15", just "2026-10", or nothing (미정).
+function releaseOf(v) {
+  if (v instanceof Date) return v.toISOString().slice(0, 10)
+  const t = String(v ?? '').trim()
+  if (/^\d{4}-\d{2}(-\d{2})?$/.test(t)) return t
+  return ''
+}
+
+// Today in Korea, so a game dated 2026-10-15 opens at midnight KST.
+const TODAY_KST = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10)
+
 function toDate(v) {
   if (v instanceof Date) return v.toISOString().slice(0, 10)
   return v ? String(v) : ''
@@ -147,7 +158,12 @@ async function buildGame(id) {
   if (!/^[a-z0-9][a-z0-9-]*$/.test(id)) problem(id, '폴더 이름(게임 id)은 영문 소문자, 숫자, -만 쓸 수 있습니다')
   if (!y.title) problem(id, 'title(제목)이 비어 있습니다')
   if (!y.developer) problem(id, 'developer(제작자)가 비어 있습니다')
-  if (!y.play_url && !y.repo && !y.download) problem(id, 'play_url, repo, download 중 하나는 있어야 합니다')
+  const release = releaseOf(y.release)
+  // An exact date that has arrived releases the game on its own (the hourly build picks it up).
+  // (Only if there is something to play by then; otherwise it stays coming soon.)
+  const hasFiles = Boolean(y.play_url || y.repo || y.download)
+  const comingSoon = Boolean(y.coming_soon) && !(hasFiles && /^\d{4}-\d{2}-\d{2}$/.test(release) && release <= TODAY_KST)
+  if (!comingSoon && !y.play_url && !y.repo && !y.download) problem(id, 'play_url, repo, download 중 하나는 있어야 합니다 (출시 예정 게임이면 coming_soon: true)')
   const price = Number(y.price ?? 0)
   if (!Number.isFinite(price) || price < 0) problem(id, 'price는 0 이상의 숫자여야 합니다')
   const discount = Math.min(100, Math.max(0, Number(y.discount ?? 0) || 0))
@@ -201,7 +217,8 @@ async function buildGame(id) {
     title: String(y.title ?? id),
     titleEn: y.title_en ? String(y.title_en) : '',
     developer: String(y.developer ?? ''),
-    release: toDate(y.release),
+    release: comingSoon ? release : toDate(y.release),
+    comingSoon,
     price,
     discount,
     finalPrice: Math.round((price * (100 - discount)) / 100),
@@ -320,7 +337,7 @@ async function main() {
     .map((d) => d.name)
 
   const built = await Promise.all(ids.map(buildGame))
-  const showable = (g) => g && g.title && g.images.header && (g.playUrl || g.download || g.repo)
+  const showable = (g) => g && g.title && g.images.header && (g.comingSoon || g.playUrl || g.download || g.repo)
   const skipped = ids.filter((id, i) => !showable(built[i]))
   const games = built.filter(showable).filter((g) => !g.hidden)
   const problemsById = {}

@@ -49,6 +49,7 @@ export function StoreNav() {
       </Drop>
       <Drop id="new" label="추천 제품">
         <Link to="/search?sort=new">인기 신규 출시</Link>
+        <Link to="/search?soon=1">출시 예정</Link>
         <Link to="/search?price=free">무료 게임</Link>
         <Link to="/search?sale=1">특별 할인</Link>
         <Link to="/search?platform=web">브라우저에서 플레이</Link>

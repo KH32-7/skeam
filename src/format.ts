@@ -15,6 +15,14 @@ export function koDate(iso: string) {
   return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일`
 }
 
+/** "2026-10-15" → 2026년 10월 15일, "2026-10" → 2026년 10월, "" → 출시일 미정 */
+export function koRelease(release: string) {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(release)) return koDate(release)
+  const m = release.match(/^(\d{4})-(\d{2})$/)
+  if (m) return `${m[1]}년 ${Number(m[2])}월`
+  return '출시일 미정'
+}
+
 export function shortDate(ts: number) {
   const d = new Date(ts)
   const now = new Date()
@@ -29,3 +37,9 @@ export function hours(sec: number) {
 }
 
 export const platformLabel = { web: '브라우저에서 플레이', windows: 'Windows 다운로드', both: '브라우저 · Windows' } as const
+
+/** Platform line for a game; a coming-soon game with no files yet has none. */
+export function platformText(g: { platform: keyof typeof platformLabel; comingSoon?: boolean; playUrl: string; download: string; repo: string }) {
+  if (g.comingSoon && !g.playUrl && !g.download && !g.repo) return '출시 예정'
+  return platformLabel[g.platform]
+}
