@@ -38,10 +38,23 @@ export function Chrome() {
     <header className="chrome">
       {kiosk && <div className="kiosk-bar">전시회 모드 · 3분 동안 아무 입력이 없으면 다음 방문자를 위해 처음 화면으로 돌아갑니다</div>}
       <div className="chrome-top">
-        <div style={{ position: 'relative' }}>
-          <button className="brand" style={{ background: 'none', border: 'none', padding: 0 }} onClick={() => setMenu(menu === 'skeam' ? null : 'skeam')}>
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 2 }}>
+          {/* Logo = back to the store front with a full reload, so new games show up. */}
+          <a
+            className="brand"
+            href="./#/"
+            title="상점 홈 (새로고침)"
+            onClick={(e) => {
+              e.preventDefault()
+              location.hash = '#/'
+              location.reload()
+            }}
+          >
             <img src="./skeam-icon.svg" alt="" />
             SKEAM
+          </a>
+          <button className="brand-menu" aria-label="SKEAM 메뉴" onClick={() => setMenu(menu === 'skeam' ? null : 'skeam')}>
+            ▾
           </button>
           {menu === 'skeam' && <SkeamMenu close={() => setMenu(null)} />}
         </div>

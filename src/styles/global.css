@@ -2213,3 +2213,17 @@ input.mini {
 input.mini::placeholder {
   color: #4f6273;
 }
+
+.chrome-top .brand:hover {
+  color: #fff;
+}
+.brand-menu {
+  padding: 0 4px;
+  background: none;
+  border: none;
+  color: #8f98a0;
+  font-size: 11px;
+}
+.brand-menu:hover {
+  color: #fff;
+}
