@@ -10,16 +10,17 @@ interface Review {
   playtime: number
 }
 
+/** Steam-style summary, by the share of 추천 only (SKEAM games never get 50 reviews). */
 export function reviewLabel(pos: number, n: number) {
   if (n === 0) return { text: '평가 없음', cls: '' }
   const r = pos / n
-  if (r >= 0.95 && n >= 50) return { text: '압도적으로 긍정적', cls: 'pos' }
-  if (r >= 0.8 && n >= 10) return { text: '매우 긍정적', cls: 'pos' }
-  if (r >= 0.8) return { text: '긍정적', cls: 'pos' }
+  if (r >= 0.95) return { text: '압도적으로 긍정적', cls: 'pos' }
+  if (r >= 0.8) return { text: '매우 긍정적', cls: 'pos' }
   if (r >= 0.7) return { text: '대체로 긍정적', cls: 'pos' }
   if (r >= 0.4) return { text: '복합적', cls: 'mixed' }
   if (r >= 0.2) return { text: '대체로 부정적', cls: 'neg' }
-  return { text: '부정적', cls: 'neg' }
+  if (r >= 0.05) return { text: '매우 부정적', cls: 'neg' }
+  return { text: '압도적으로 부정적', cls: 'neg' }
 }
 
 export function useReviews(endpoint: string, gameId: string) {
