@@ -90,7 +90,10 @@ function LibHome({ games, owned, missing }: { games: Game[]; owned: Record<strin
           <div className="shelf">
             {recent.map((g) => (
               <Link key={g.id} to={`/library/${g.id}`}>
-                <img src={g.images.capsule} alt={g.title} />
+                <div className="cap">
+                  <img src={g.images.capsule} alt="" />
+                  <span className="cap-title">{g.title}</span>
+                </div>
                 <div className="when">{owned[g.id].lastPlayed ? shortDate(owned[g.id].lastPlayed) : '새로 추가됨'}</div>
               </Link>
             ))}
