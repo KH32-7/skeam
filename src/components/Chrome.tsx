@@ -3,11 +3,71 @@ import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useData } from '../data/api'
 import { walletWon } from '../format'
 import { login, logout, signup } from '../state/account'
-import { exportData, importData, markNewsSeen, markReleaseSeen, resetForNextVisitor, setKiosk, setProfile, useStore } from '../state/store'
+import { exportData, importData, markNewsSeen, markReleaseSeen, markReviewsSeen, resetForNextVisitor, setKiosk, setProfile, useStore } from '../state/store'
 import { Avatar, AVATAR_COUNT, Modal, toast } from './ui'
 
 export function newsKey(n: { date: string; title: string }) {
   return `${n.date}|${n.title}`
+}
+
+interface ReviewAlert {
+  game: string
+  title: string
+  capsule: string
+  name: string
+  recommend: boolean
+  text: string
+  time: string
+}
+
+let reviewAlertCache: { at: number; list: ReviewAlert[] } | null = null
+const reviewAlertListeners = new Set<(l: ReviewAlert[]) => void>()
+
+/**
+ * New reviews on games this person made (not written by themselves). Checked
+ * when the site opens and every 5 minutes; the first time, only the last week
+ * counts so old reviews don't all pop up at once.
+ */
+export function useReviewAlerts() {
+  const { data } = useData()
+  const me = useStore((s) => s.session?.name ?? s.profile?.name ?? '')
+  const seen = useStore((s) => s.seenReviewsAt ?? '')
+  const [all, setAll] = useState<ReviewAlert[]>(reviewAlertCache?.list ?? [])
+
+  useEffect(() => {
+    reviewAlertListeners.add(setAll)
+    return () => void reviewAlertListeners.delete(setAll)
+  }, [])
+
+  useEffect(() => {
+    const endpoint = data?.site.registerEndpoint
+    if (!data || !endpoint || !me) return
+    const mine = data.games.filter((g) => g.developer.toLowerCase() === me.toLowerCase())
+    if (!mine.length) return
+    const load = async () => {
+      if (reviewAlertCache && Date.now() - reviewAlertCache.at < 4 * 60 * 1000) return
+      try {
+        const j = await fetch(`${endpoint}?action=reviews`).then((r) => r.json())
+        if (!j.ok) return
+        const list: ReviewAlert[] = j.reviews
+          .filter((r: { game: string; name: string }) => mine.some((g) => g.id === r.game) && String(r.name).toLowerCase() !== me.toLowerCase())
+          .map((r: { game: string; name: string; recommend: boolean; text: string; time: string }) => {
+            const g = mine.find((x) => x.id === r.game)!
+            return { game: g.id, title: g.title, capsule: g.images.capsule, name: String(r.name), recommend: !!r.recommend, text: String(r.text), time: String(r.time) }
+          })
+        reviewAlertCache = { at: Date.now(), list }
+        reviewAlertListeners.forEach((l) => l(list))
+      } catch {
+        /* try again later */
+      }
+    }
+    load()
+    const t = setInterval(load, 5 * 60 * 1000)
+    return () => clearInterval(t)
+  }, [data, me])
+
+  const since = seen || new Date(Date.now() - 7 * 86400000).toISOString()
+  return all.filter((r) => r.time > since)
 }
 
 /** Games wishlisted while coming soon that have since come out. */
@@ -34,7 +94,8 @@ export function Chrome() {
   const loc = useLocation()
   const updates = useUpdates()
   const released = useReleased()
-  const alerts = updates.length + released.length
+  const reviews = useReviewAlerts()
+  const alerts = updates.length + released.length + reviews.length
   const [menu, setMenu] = useState<'account' | 'bell' | null>(null)
   const isLibrary = loc.pathname.startsWith('/library')
   const isCommunity = loc.pathname.startsWith('/community')
@@ -104,6 +165,21 @@ export function Chrome() {
             <div className="modal" style={{ position: 'absolute', right: 0, top: 28, width: 320, zIndex: 60 }}>
               <div className="mb">
                 {alerts === 0 && <div style={{ color: '#8f98a0' }}>새 알림이 없습니다.</div>}
+                {reviews.length > 0 && (
+                  <a
+                    href={`#/app/${reviews[0].game}?reviews=1`}
+                    onClick={() => markReviewsSeen(reviews.map((r) => r.time).sort().pop()!)}
+                    style={{ display: 'block', padding: '6px 0', color: '#c7d5e0' }}
+                  >
+                    <b style={{ color: '#66c0f4', display: 'block', fontSize: 12 }}>내 게임에 새 평가 {reviews.length}개</b>
+                    {reviews.slice(0, 3).map((r) => (
+                      <span key={r.time + r.name} style={{ display: 'block', fontSize: 12, marginTop: 2 }}>
+                        {r.recommend ? '👍' : '👎'} <b style={{ color: '#fff' }}>{r.name}</b> · {r.title}: {r.text.slice(0, 40)}
+                        {r.text.length > 40 && '…'}
+                      </span>
+                    ))}
+                  </a>
+                )}
                 {released.map((g) => (
                   <a key={g.id} href={`#/app/${g.id}`} onClick={() => markReleaseSeen([g.id])} style={{ display: 'flex', gap: 10, padding: '6px 0', color: '#c7d5e0' }}>
                     <img src={g.images.header} alt="" style={{ width: 92, height: 43, objectFit: 'cover' }} />
@@ -390,9 +466,22 @@ export function ProfileGate() {
   )
 }
 
-/** Pops a toast once per visit for each wishlisted game that just came out. */
+/** Pops a toast once per visit for each wishlisted game that just came out, and for new reviews on my games. */
 export function ReleaseNotifier() {
   const released = useReleased()
+  const reviews = useReviewAlerts()
+  useEffect(() => {
+    if (!reviews.length) return
+    const key = `skeam:toasted:reviews:${reviews.map((r) => r.time).sort().pop()}`
+    try {
+      if (sessionStorage.getItem(key)) return
+      sessionStorage.setItem(key, '1')
+    } catch {
+      /* ignore */
+    }
+    const r = reviews[0]
+    toast({ title: `내 게임에 새 평가 ${reviews.length}개`, body: `${r.recommend ? '👍' : '👎'} ${r.name} · ${r.title}`, icon: r.capsule })
+  }, [reviews.map((r) => r.time).join()]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     for (const g of released) {
       const key = `skeam:toasted:${g.id}`

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Reviews, reviewLabel, useReviews } from '../components/Reviews'
 import { StoreNav } from '../components/StoreNav'
 import { Loading, Price, Tags } from '../components/ui'
@@ -17,9 +17,18 @@ function youtubeId(url: string) {
 export default function AppPage() {
   const { id } = useParams()
   const { game, data } = useGame(id)
+  const [params] = useSearchParams()
+  const toReviews = params.has('reviews')
   useEffect(() => {
-    window.scrollTo(0, 0)
-  }, [id])
+    if (!toReviews) window.scrollTo(0, 0)
+  }, [id, toReviews])
+  useEffect(() => {
+    if (!toReviews || !game) return
+    // Images above the reviews finish loading after the first jump, so jump again.
+    const go = () => document.getElementById('reviews')?.scrollIntoView({ block: 'start' })
+    const ts = [300, 1200, 2500].map((ms) => setTimeout(go, ms))
+    return () => ts.forEach(clearTimeout)
+  }, [toReviews, game])
   return (
     <div className="store">
       <div className="store-wrap">
@@ -201,7 +210,9 @@ function App({ g, endpoint }: { g: Game; endpoint: string }) {
             )}
           </div>
 
-          <Reviews endpoint={endpoint} gameId={g.id} title={g.title} />
+          <div id="reviews">
+            <Reviews endpoint={endpoint} gameId={g.id} title={g.title} />
+          </div>
         </div>
 
         <aside>

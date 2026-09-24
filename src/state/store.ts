@@ -27,6 +27,8 @@ export interface State {
   seenNews: Record<string, string>
   /** Wishlisted while still coming soon: tell the visitor when these come out. */
   watchRelease: string[]
+  /** Reviews on my own games newer than this (ISO time) are shown as alerts. */
+  seenReviewsAt: string
   txns: Txn[]
   kiosk: boolean
   /** Logged-in SKEAM account on this device; lastSync = server time of the last save/load. */
@@ -45,6 +47,7 @@ const initial: State = {
   achievements: {},
   seenNews: {},
   watchRelease: [],
+  seenReviewsAt: '',
   txns: [],
   kiosk: false,
   session: null,
@@ -101,9 +104,9 @@ export function onChange(l: (before: State, after: State) => void) {
 }
 
 /** The part of a visitor's state that follows their account between devices. */
-export type Synced = Pick<State, 'profile' | 'wallet' | 'owned' | 'wishlist' | 'achievements' | 'seenNews' | 'watchRelease' | 'txns'>
+export type Synced = Pick<State, 'profile' | 'wallet' | 'owned' | 'wishlist' | 'achievements' | 'seenNews' | 'watchRelease' | 'seenReviewsAt' | 'txns'>
 export function syncedPart(s: State): Synced {
-  return { profile: s.profile, wallet: s.wallet, owned: s.owned, wishlist: s.wishlist, achievements: s.achievements, seenNews: s.seenNews, watchRelease: s.watchRelease ?? [], txns: s.txns.slice(0, 50) }
+  return { profile: s.profile, wallet: s.wallet, owned: s.owned, wishlist: s.wishlist, achievements: s.achievements, seenNews: s.seenNews, watchRelease: s.watchRelease ?? [], seenReviewsAt: s.seenReviewsAt ?? '', txns: s.txns.slice(0, 50) }
 }
 
 export function getState() {
@@ -170,6 +173,10 @@ export function toggleWishlist(id: string, comingSoon = false) {
       watchRelease: on && comingSoon ? [...watch, id] : watch,
     }
   })
+}
+
+export function markReviewsSeen(at: string) {
+  setState((s) => (at > (s.seenReviewsAt ?? '') ? { ...s, seenReviewsAt: at } : s))
 }
 
 /** The visitor has seen that these watched games came out. */
