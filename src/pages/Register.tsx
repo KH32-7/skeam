@@ -396,7 +396,7 @@ function GameForm({ games, site, existing, existingAbout }: { games: Game[]; sit
   if (submit) return <SubmitStatus s={submit} setS={setSubmit} />
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 340px', gap: 24, alignItems: 'start' }}>
+    <div className="reg-grid">
       <div>
         {showErrors && !ok && <div className="notice err">빠진 항목이 {Object.keys(errors).length}개 있습니다. 빨간 글씨를 확인해 주세요.</div>}
 
@@ -713,7 +713,7 @@ function GameForm({ games, site, existing, existingAbout }: { games: Game[]; sit
         </Section>
       </div>
 
-      <aside style={{ position: 'sticky', top: 100 }}>
+      <aside className="reg-aside">
         <div className="panel">
           <div style={{ fontSize: 12, color: '#8f98a0', marginBottom: 6 }}>상점 미리보기</div>
           {crops.header || existing ? <img src={crops.header ?? existing!.images.header} alt="" /> : <div style={{ aspectRatio: '920/430', background: '#0e141b', display: 'grid', placeItems: 'center', color: '#556772' }}>가로 배너</div>}

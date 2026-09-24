@@ -2616,3 +2616,374 @@ button.account-pill {
   margin: 4px 0;
   background: rgba(255, 255, 255, 0.1);
 }
+
+.reg-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 24px;
+  align-items: start;
+}
+.reg-aside {
+  position: sticky;
+  top: 100px;
+}
+
+/* ================= phones ================= */
+@media (max-width: 700px) {
+  html,
+  body {
+    overflow-x: hidden;
+  }
+  .store-wrap {
+    width: calc(100% - 20px);
+  }
+
+  /* client chrome */
+  .chrome-top {
+    gap: 8px;
+    padding: 0 8px;
+  }
+  .chrome-top .menu-link,
+  .account-pill .bal,
+  .chrome-btn.news {
+    display: none;
+  }
+  .account-pill {
+    max-width: 140px;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  .account-menu {
+    width: min(260px, calc(100vw - 16px));
+  }
+  .chrome-nav {
+    height: 44px;
+    padding: 0 6px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .chrome-nav::-webkit-scrollbar {
+    display: none;
+  }
+  .chrome-nav .arrows {
+    display: none;
+  }
+  .chrome-nav .tab {
+    flex: none;
+    padding: 6px 8px;
+    font-size: 16px;
+    white-space: nowrap;
+  }
+  .bottom-bar {
+    font-size: 12px;
+  }
+  .bottom-bar .center {
+    display: none;
+  }
+  .bottom-bar a:last-child {
+    margin-left: auto;
+  }
+
+  /* store nav: menu items scroll sideways, search on its own row */
+  .store-nav {
+    flex-wrap: wrap;
+    height: auto;
+    margin: 10px 0 14px;
+  }
+  .store-nav .item {
+    height: 40px;
+    padding: 0 10px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+  .store-nav .grow {
+    display: none;
+  }
+  .store-search {
+    order: 10;
+    width: 100%;
+    margin: 0 6px 6px;
+  }
+  .store-nav .wish {
+    height: 40px;
+    padding: 0 10px;
+    font-size: 12px;
+  }
+  .store-nav .dropdown {
+    columns: 1;
+    min-width: 180px;
+  }
+  .cat-mega {
+    position: fixed;
+    top: 120px;
+    left: 8px;
+    right: 8px;
+    max-height: calc(100vh - 140px);
+    overflow-y: auto;
+    padding: 12px;
+  }
+  .cat-cards {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+  .cat-card {
+    height: 90px;
+  }
+  .cat-card .label {
+    font-size: 14px;
+  }
+  .cat-cols {
+    grid-template-columns: 1fr 1fr;
+    gap: 0 12px;
+  }
+  .cat-col a {
+    font-size: 14px;
+  }
+  .cat-all,
+  .cat-toggle {
+    font-size: 14px;
+  }
+
+  /* home */
+  .section-head {
+    margin: 22px 0 8px;
+    gap: 8px;
+  }
+  .section-head h2 {
+    font-size: 17px;
+  }
+  .feature .side {
+    padding: 12px;
+  }
+  .feature .thumbs {
+    display: none;
+  }
+  .feature .reason {
+    font-size: 14px;
+  }
+  .deals-window {
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+  }
+  .deals-window::-webkit-scrollbar {
+    display: none;
+  }
+  .deals-track {
+    transform: none !important;
+    grid-auto-columns: 82%;
+    gap: 10px;
+    margin-right: 0;
+  }
+  .deal {
+    scroll-snap-align: start;
+  }
+  .deals-carousel .dots {
+    display: none;
+  }
+  .deal .body {
+    flex-wrap: wrap;
+  }
+  .tabs-row {
+    gap: 18px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .tabs-row::-webkit-scrollbar {
+    display: none;
+  }
+  .tabs-row button {
+    flex: none;
+    font-size: 15px;
+    white-space: nowrap;
+  }
+  .tab-item {
+    grid-template-columns: 120px minmax(0, 1fr);
+    height: auto;
+    min-height: 70px;
+    gap: 10px;
+  }
+  .tab-item img {
+    width: 120px;
+    height: 100%;
+    min-height: 70px;
+  }
+  .tab-item .t {
+    font-size: 14px;
+  }
+  .tab-item .tags {
+    display: none;
+  }
+  .tab-item .rel {
+    margin-top: 2px;
+  }
+  .tab-item > .price {
+    grid-column: 2;
+    justify-self: start;
+    margin: 0 0 8px;
+  }
+  .tag-card {
+    height: 70px;
+    font-size: 15px;
+  }
+
+  /* prices never force the row wider */
+  .price {
+    max-width: 100%;
+    flex-wrap: wrap;
+  }
+  .price .orig {
+    display: none;
+  }
+
+  /* game page */
+  .app-title {
+    font-size: 21px;
+  }
+  .app-top {
+    padding: 8px;
+    gap: 10px;
+  }
+  .app-body {
+    gap: 12px;
+  }
+  .buy-box {
+    padding-bottom: 56px;
+  }
+  .buy-action {
+    right: 12px;
+    max-width: calc(100% - 24px);
+  }
+  .ai-box {
+    grid-template-columns: 1fr;
+  }
+  .review {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  /* checkout / wallet */
+  .cart-line {
+    grid-template-columns: 110px minmax(0, 1fr);
+  }
+  .cart-line img {
+    width: 110px;
+  }
+  .cart-line > .price {
+    grid-column: 2;
+    justify-self: start;
+  }
+  .page-title {
+    font-size: 24px;
+    margin: 14px 0 12px;
+  }
+  .fund-row {
+    height: auto;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .fund-row .act {
+    align-self: flex-end;
+  }
+
+  /* library */
+  .lib-hero {
+    height: 190px;
+  }
+  .lib-hero .logo,
+  .lib-hero .logo-text {
+    left: 16px;
+    bottom: 14px;
+  }
+  .lib-hero .logo-text {
+    font-size: 28px;
+  }
+  .lib-bar {
+    flex-wrap: wrap;
+    gap: 12px 20px;
+    padding: 12px;
+  }
+  .btn-play {
+    height: 42px;
+    padding: 0 22px;
+    font-size: 18px;
+  }
+  .lib-links {
+    gap: 16px;
+    margin: 0 8px;
+    padding: 8px 12px;
+    flex-wrap: wrap;
+  }
+  .lib-cols {
+    padding: 10px;
+  }
+  .lib-home {
+    padding: 14px;
+  }
+  .shelf {
+    gap: 10px;
+  }
+  .shelf a,
+  .shelf .cap {
+    width: calc((100vw - 48px) / 2);
+  }
+  .shelf .cap {
+    height: calc((100vw - 48px) / 2 * 1.5);
+  }
+
+  /* search / lists */
+  .search-row {
+    grid-template-columns: 110px minmax(0, 1fr);
+  }
+  .search-row img {
+    width: 110px;
+  }
+  .search-row > div:nth-child(3) {
+    grid-column: 2;
+  }
+  .search-row > .price {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  /* register */
+  .reg-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .reg-aside {
+    position: static;
+  }
+  .tag-groups {
+    grid-template-columns: 1fr;
+  }
+
+  /* community / profile / developer */
+  .club-hero {
+    padding: 24px 18px;
+  }
+  .club-hero h1 {
+    font-size: 32px;
+  }
+  .club-hero .crown {
+    width: 70px;
+    right: 14px;
+  }
+  .members {
+    grid-template-columns: 1fr;
+  }
+  .profile-head {
+    flex-wrap: wrap;
+  }
+  .profile-head > svg {
+    width: 96px;
+    height: 96px;
+  }
+
+  .modal .mh {
+    font-size: 19px;
+  }
+  .toast {
+    width: calc(100vw - 24px);
+    right: 12px;
+  }
+}

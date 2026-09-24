@@ -62,7 +62,7 @@ export default function Profile() {
   return (
     <div className="store" style={{ background: 'radial-gradient(ellipse at 50% 0, #2b4a68, #1b2838 60%)' }}>
       <div className="store-wrap" style={{ maxWidth: 976 }}>
-        <div className="panel" style={{ display: 'flex', gap: 24, alignItems: 'center', marginTop: 24 }}>
+        <div className="panel profile-head" style={{ display: 'flex', gap: 24, alignItems: 'center', marginTop: 24 }}>
           <Avatar name={me || '?'} index={edit ? avatar : profile?.avatar ?? 7} size={164} />
           <div style={{ flex: 1 }}>
             {edit ? (

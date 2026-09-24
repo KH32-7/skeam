@@ -30,7 +30,7 @@ export default function Developer() {
         <div className="crumbs">
           <Link to="/community">커뮤니티</Link> &gt; 제작자
         </div>
-        <div className="panel" style={{ display: 'flex', gap: 20, alignItems: 'center', marginTop: 10 }}>
+        <div className="panel profile-head" style={{ display: 'flex', gap: 20, alignItems: 'center', marginTop: 10 }}>
           <img src={memberAvatar(member)} alt="" style={{ width: 96, height: 96, objectFit: 'cover', border: '2px solid #4d9a2a' }} />
           <div>
             <div style={{ fontSize: 28, color: '#fff', fontWeight: 700 }}>{member?.name ?? name}</div>
