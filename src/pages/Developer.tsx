@@ -1,7 +1,7 @@
 import { Link, useParams } from 'react-router-dom'
 import { StoreNav } from '../components/StoreNav'
 import { Loading, Price } from '../components/ui'
-import { useData } from '../data/api'
+import { useData, useProfiles } from '../data/api'
 import { koDate, platformLabel } from '../format'
 import type { Club, Game } from '../types'
 
@@ -17,6 +17,7 @@ export const developerPath = (name: string) => `/developer/${encodeURIComponent(
 export default function Developer() {
   const { name = '' } = useParams()
   const { data } = useData()
+  const profiles = useProfiles()
   if (!data) return <Loading />
   const key = name.toLowerCase()
   const member = data.club.members.find((m) => m.name.toLowerCase() === key)
@@ -34,7 +35,7 @@ export default function Developer() {
           <div>
             <div style={{ fontSize: 28, color: '#fff', fontWeight: 700 }}>{member?.name ?? name}</div>
             {member?.role && <div style={{ color: 'var(--gold)' }}>{member.role}</div>}
-            {member?.bio && <div style={{ marginTop: 4 }}>{member.bio}</div>}
+            {(profiles[key]?.status || member?.bio) && <div style={{ marginTop: 4, color: '#c6d4df' }}>{profiles[key]?.status || member?.bio}</div>}
             <div style={{ color: '#8f98a0', fontSize: 13, marginTop: 4 }}>
               SKEAM에 올린 게임 {games.length}개
               {member?.github && (

@@ -19,6 +19,38 @@ export function loadAll() {
   return cache
 }
 
+// ---- status messages, kept in the registration desk's "profiles" sheet ----------
+
+export type Profiles = Record<string, { name: string; status: string }>
+let profilesCache: Promise<Profiles> | null = null
+
+export function loadProfiles(endpoint: string, fresh = false): Promise<Profiles> {
+  if (!endpoint) return Promise.resolve({})
+  if (fresh || !profilesCache)
+    profilesCache = fetch(`${endpoint}?action=profiles`)
+      .then((r) => r.json())
+      .then((j) => (j.ok && j.profiles ? j.profiles : {}))
+      .catch(() => ({}))
+  return profilesCache
+}
+
+/** Status messages by lower-cased nickname ({} until loaded or without a desk). */
+export function useProfiles() {
+  const { data } = useData()
+  const [p, setP] = useState<Profiles>({})
+  useEffect(() => {
+    if (data) loadProfiles(data.site.registerEndpoint).then(setP)
+  }, [data])
+  return p
+}
+
+export async function saveStatus(endpoint: string, name: string, text: string) {
+  const r = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'status', name, text }) })
+  const j = await r.json()
+  if (!j.ok) throw new Error(j.error)
+  await loadProfiles(endpoint, true)
+}
+
 /** Bypasses the cache; the register page polls this to see a submission go live. */
 export const fetchLiveGames = () => getJson<Game[]>('games', true)
 export const fetchLiveSite = () => getJson<Site>('site', true)

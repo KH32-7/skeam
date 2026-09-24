@@ -19,7 +19,7 @@ export interface Txn {
 }
 
 export interface State {
-  profile: { name: string; avatar: number } | null
+  profile: { name: string; avatar: number; status?: string } | null
   wallet: number
   owned: Record<string, Owned>
   wishlist: string[]
@@ -174,8 +174,8 @@ export function unlockAchievement(gameId: string, achId: string) {
   return true
 }
 
-export function setProfile(name: string, avatar: number) {
-  setState((s) => ({ ...s, profile: { name, avatar } }))
+export function setProfile(name: string, avatar: number, status?: string) {
+  setState((s) => ({ ...s, profile: { name, avatar, status: status ?? s.profile?.status } }))
 }
 
 export function setKiosk(on: boolean) {

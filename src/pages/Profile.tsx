@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Avatar, AVATAR_COUNT, Loading } from '../components/ui'
-import { useData } from '../data/api'
+import { saveStatus, useData } from '../data/api'
 import { hours, walletWon } from '../format'
 import { setProfile, useStore } from '../state/store'
 import { developerPath, GameList } from './Developer'
@@ -15,6 +15,8 @@ export default function Profile() {
   const [edit, setEdit] = useState(false)
   const [name, setName] = useState(profile?.name ?? '')
   const [avatar, setAvatar] = useState(profile?.avatar ?? 0)
+  const [status, setStatus] = useState(profile?.status ?? '')
+  const [msg, setMsg] = useState('')
   if (!data) return <Loading />
 
   const mine = data.games.filter((g) => owned[g.id])
@@ -40,11 +42,32 @@ export default function Profile() {
                     </button>
                   ))}
                 </div>
+                <div style={{ position: 'relative', marginBottom: 10 }}>
+                  <textarea
+                    value={status}
+                    maxLength={100}
+                    onChange={(e) => setStatus(e.target.value.replace(/\s*\n\s*/g, ' '))}
+                    placeholder="상태 메시지 (100자까지, 커뮤니티 멤버 목록에도 보여요)"
+                    style={{ width: '100%', minHeight: 64, padding: 8, background: '#0e141b', color: '#fff', border: '1px solid #3d4450', fontFamily: 'inherit', resize: 'vertical' }}
+                  />
+                  <span style={{ position: 'absolute', right: 8, bottom: 8, fontSize: 11, color: '#8f98a0' }}>{status.length}/100</span>
+                </div>
                 <button
                   className="btn-green"
-                  onClick={() => {
-                    if (name.trim()) setProfile(name.trim(), avatar)
+                  onClick={async () => {
+                    const n = name.trim()
+                    if (!n) return
+                    setProfile(n, avatar, status.trim())
                     setEdit(false)
+                    if (data.site.registerEndpoint && status.trim() !== (profile?.status ?? '')) {
+                      setMsg('상태 메시지를 올리는 중…')
+                      try {
+                        await saveStatus(data.site.registerEndpoint, n, status.trim())
+                        setMsg('상태 메시지가 멤버 목록에 반영됐어요.')
+                      } catch (e) {
+                        setMsg(`상태 메시지를 올리지 못했어요: ${(e as Error).message}`)
+                      }
+                    }
                   }}
                 >
                   저장
@@ -53,7 +76,8 @@ export default function Profile() {
             ) : (
               <>
                 <div style={{ fontSize: 26, color: '#fff' }}>{profile?.name ?? '게스트'}</div>
-                <div style={{ color: '#8f98a0' }}>KING 동아리 SKEAM 회원</div>
+                <div style={{ color: profile?.status ? '#c6d4df' : '#8f98a0', wordBreak: 'break-all' }}>{profile?.status || 'KING 동아리 SKEAM 회원'}</div>
+                {msg && <div style={{ color: '#a4d007', fontSize: 12, marginTop: 4 }}>{msg}</div>}
                 <button className="btn-gray" style={{ marginTop: 12 }} onClick={() => setEdit(true)}>
                   프로필 편집
                 </button>

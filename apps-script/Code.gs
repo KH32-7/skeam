@@ -30,6 +30,8 @@ function doPost(e) {
         return json(dispatchDeploy())
       case 'review':
         return json(addReview(req))
+      case 'status':
+        return json(setStatus(req))
       default:
         return json({ ok: false, error: '알 수 없는 요청' })
     }
@@ -41,6 +43,7 @@ function doPost(e) {
 function doGet(e) {
   var p = (e && e.parameter) || {}
   if (p.action === 'reviews') return json(listReviews(p.game))
+  if (p.action === 'profiles') return json(listProfiles())
   return json({ ok: true, service: 'SKEAM' })
 }
 
@@ -163,6 +166,55 @@ function listReviews(game) {
     })
     .reverse()
   return { ok: true, reviews: out }
+}
+
+// ---- profile status messages ---------------------------------------------------
+
+function profileSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet()
+  var sh = ss.getSheetByName('profiles')
+  if (!sh) {
+    sh = ss.insertSheet('profiles')
+    sh.appendRow(['name', 'status', 'time'])
+    sh.setFrozenRows(1)
+  }
+  return sh
+}
+
+/** One row per nickname (case-insensitive); saving again overwrites it. */
+function setStatus(req) {
+  var name = String(req.name || '').trim().slice(0, 20)
+  if (!name) throw new Error('닉네임이 없습니다')
+  var text = String(req.text || '').trim().slice(0, 100)
+  var lower = text.toLowerCase()
+  if (
+    BAD_WORDS.some(function (w) {
+      return lower.indexOf(w) >= 0
+    })
+  )
+    throw new Error('사용할 수 없는 단어가 들어 있습니다')
+  var sh = profileSheet()
+  var rows = sh.getDataRange().getValues()
+  for (var i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]).toLowerCase() === name.toLowerCase()) {
+      sh.getRange(i + 1, 1, 1, 3).setValues([[name, text, new Date().toISOString()]])
+      return { ok: true }
+    }
+  }
+  sh.appendRow([name, text, new Date().toISOString()])
+  return { ok: true }
+}
+
+function listProfiles() {
+  var out = {}
+  profileSheet()
+    .getDataRange()
+    .getValues()
+    .slice(1)
+    .forEach(function (r) {
+      if (r[0]) out[String(r[0]).toLowerCase()] = { name: String(r[0]), status: String(r[1] || '') }
+    })
+  return { ok: true, profiles: out }
 }
 
 // ---- helpers -----------------------------------------------------------------

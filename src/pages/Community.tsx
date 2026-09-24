@@ -1,10 +1,11 @@
 import { Link } from 'react-router-dom'
 import { Loading } from '../components/ui'
-import { useData } from '../data/api'
+import { useData, useProfiles } from '../data/api'
 import { developerPath, memberAvatar } from './Developer'
 
 export default function Community() {
   const { data } = useData()
+  const profiles = useProfiles()
   if (!data) return <Loading />
   const { club, games } = data
   const count = (m: { name: string }) => games.filter((g) => g.developer.toLowerCase() === m.name.toLowerCase()).length
@@ -43,9 +44,8 @@ export default function Community() {
                   <div>
                     <div className="n">{m.name}</div>
                     <div className="r">{m.role}</div>
-                    <div className="g">
-                      게임 {count(m)}개{m.bio && ` · ${m.bio}`}
-                    </div>
+                    {(profiles[m.name.toLowerCase()]?.status || m.bio) && <div className="st">{profiles[m.name.toLowerCase()]?.status || m.bio}</div>}
+                    <div className="g">게임 {count(m)}개</div>
                   </div>
                 </Link>
               ))}
