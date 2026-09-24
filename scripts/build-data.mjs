@@ -85,6 +85,12 @@ function humanSize(bytes) {
   return mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${Math.max(1, Math.round(mb))} MB`
 }
 
+// A Drive share link opens a preview page; turn it into a direct download.
+function directDownload(url) {
+  const m = String(url).match(/drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?(?:.*&)?id=)([\w-]{20,})/)
+  return m ? `https://drive.usercontent.google.com/download?id=${m[1]}&export=download` : url
+}
+
 function parseRepo(url) {
   const m = String(url).match(/github\.com\/([^/]+)\/([^/#?]+)/)
   return m ? `${m[1]}/${m[2].replace(/\.git$/, '')}` : null
@@ -183,7 +189,7 @@ async function buildGame(id) {
     finalPrice: Math.round((price * (100 - discount)) / 100),
     playUrl: y.play_url ? String(y.play_url) : '',
     repo: y.repo ? String(y.repo) : '',
-    download: y.download ? String(y.download) : '',
+    download: y.download ? directDownload(String(y.download)) : '',
     downloadSize: y.download_size ? String(y.download_size) : '',
     version: y.version ? String(y.version) : '',
     tags: asList(y.tags),
