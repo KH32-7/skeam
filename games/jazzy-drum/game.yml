@@ -7,11 +7,11 @@ discount: 50
 play_url: "https://seohyun-lee.github.io/jazzy-drum/"
 repo: "https://github.com/seohyun-lee/jazzy-drum"
 version: "1.0.0"
-tags: ["힐링", "음악", "연주", "시뮬레이션"]
+tags: ["힐링", "음악", "시뮬레이션", "취미 및 직업 시뮬레이션", "1인칭"]
 short: "일상에 리듬 한 스푼"
 controls: "키보드 입력,터치"
 ai_tools: ["GPT-6 Astra", "Sol"]
 dev_period: "2일"
 ai_note: "채보까지 만들어야 하는 걸 간과했다"
 engine: "Javascript"
-updated: "2026-09-24T14:27:21.034Z"
+updated: "2026-09-24T14:39:32.812Z"
