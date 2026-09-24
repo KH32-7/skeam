@@ -90,10 +90,20 @@ export default function Player() {
       <iframe ref={frame} src={g.playUrl} title={g.title} allow="fullscreen; autoplay; gamepad; clipboard-write; pointer-lock; microphone; camera; screen-wake-lock" allowFullScreen />
       {/* Keys pressed inside a game from another site never reach SKEAM, so
           Shift+Tab can't be relied on. This corner button always works. */}
-      <button className="overlay-fab" title="SKEAM 오버레이 (Shift+Tab)" onClick={() => setOverlay(true)}>
-        <img src="./skeam-icon.svg" alt="" />
-        SKEAM
-      </button>
+      <div className="overlay-fab">
+        <button title="SKEAM 오버레이 (Shift+Tab)" onClick={() => setOverlay(true)}>
+          <img src="./skeam-icon.svg" alt="" />
+          SKEAM
+        </button>
+        {/* SKEAM's own fullscreen keeps this button on screen; a game's
+            built-in fullscreen button would cover it until Esc. */}
+        <button
+          title="전체 화면 (SKEAM 버튼이 계속 보여요)"
+          onClick={() => (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.())}
+        >
+          ⛶
+        </button>
+      </div>
       <div className="hot" onMouseEnter={() => setEdge(true)} />
       <div className={`edge ${edge ? 'show' : ''}`} onMouseLeave={() => setEdge(false)}>
         <img src="./skeam-icon.svg" alt="" width={16} />

@@ -2234,9 +2234,18 @@ input.mini::placeholder {
   left: 8px;
   z-index: 4;
   display: flex;
+  gap: 4px;
+  opacity: 0.35;
+  transition: opacity 0.15s;
+}
+.overlay-fab:hover {
+  opacity: 1;
+}
+.overlay-fab button {
+  display: flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 10px 4px 6px;
+  padding: 4px 10px;
   border: none;
   border-radius: 14px;
   background: rgba(23, 26, 33, 0.75);
@@ -2244,11 +2253,10 @@ input.mini::placeholder {
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.05em;
-  opacity: 0.35;
-  transition: opacity 0.15s;
 }
-.overlay-fab:hover {
-  opacity: 1;
+.overlay-fab button:hover {
+  background: rgba(23, 26, 33, 0.95);
+  color: #fff;
 }
 .overlay-fab img {
   width: 18px;
