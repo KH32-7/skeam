@@ -41,7 +41,7 @@ function doPost(e) {
       case 'register':
         return json(register(req))
       case 'news':
-        assertOwner(req.id, auth(req))
+        assertOwner(req.id, auth(req), true)
         return json(commitGameFiles(req.id, req.files, [], 'SKEAM: ' + req.id + ' 패치 노트'))
       case 'sync':
         return json(dispatchDeploy())
@@ -70,11 +70,11 @@ function doGet(e) {
 
 function register(req) {
   var who = auth(req)
-  assertOwner(req.id, who)
+  var admin = assertOwner(req.id, who)
   var yml = (req.files || []).filter(function (f) {
     return f.path === 'game.yml'
   })[0]
-  if (yml) {
+  if (yml && !admin) {
     var dev = ymlDeveloper(Utilities.newBlob(Utilities.base64Decode(yml.data)).getDataAsString('UTF-8'))
     if (dev.toLowerCase() !== who.toLowerCase()) throw new Error('제작자 이름은 로그인한 닉네임(' + who + ')과 같아야 합니다')
   }
@@ -523,15 +523,44 @@ function ymlDeveloper(text) {
   return m ? m[1].trim().replace(/^["']|["']$/g, '') : ''
 }
 
-/** A game that already exists may only be changed by the account named as its developer. */
-function assertOwner(id, who) {
+/** Admins listed in site.yml `admins:` (flow `[a, b]` or block `- a` list). */
+function isAdmin(who) {
+  var cache = CacheService.getScriptCache()
+  var list = cache.get('site:admins')
+  if (list == null) {
+    var res = ghRaw('GET', 'https://api.github.com/repos/' + prop('REPO', 'KH32-7/skeam') + '/contents/site.yml?ref=' + prop('BRANCH', 'main'))
+    var text = res.getResponseCode() < 300 ? Utilities.newBlob(Utilities.base64Decode(JSON.parse(res.getContentText()).content.replace(/\n/g, ''))).getDataAsString('UTF-8') : ''
+    var names = []
+    var flow = text.match(/^admins:[ \t]*\[([^\]]*)\]/m)
+    var block = text.match(/^admins:[ \t]*\n((?:[ \t]+-[ \t]*.+\n?)+)/m)
+    if (flow) names = flow[1].split(',')
+    else if (block) names = block[1].split('\n').map(function (l) { return l.replace(/^\s*-\s*/, '') })
+    list = names
+      .map(function (n) { return n.replace(/#.*$/, '').trim().replace(/^["']|["']$/g, '').toLowerCase() })
+      .filter(Boolean)
+      .join(',')
+    cache.put('site:admins', list, 300)
+  }
+  return !!who && list.split(',').indexOf(String(who).toLowerCase()) >= 0
+}
+
+/**
+ * A game that already exists may only be changed by the account named as its
+ * developer, or by an admin. Returns true when `who` is an admin.
+ */
+function assertOwner(id, who, mustExist) {
   if (!ID_RE.test(id || '')) throw new Error('게임 주소 이름이 올바르지 않습니다')
+  if (isAdmin(who)) return true
   var res = ghRaw('GET', 'https://api.github.com/repos/' + prop('REPO', 'KH32-7/skeam') + '/contents/games/' + id + '/game.yml?ref=' + prop('BRANCH', 'main'))
-  if (res.getResponseCode() === 404) return // a new game
+  if (res.getResponseCode() === 404) {
+    if (mustExist) throw new Error('없는 게임입니다')
+    return false // a new game
+  }
   if (res.getResponseCode() >= 300) throw new Error('GitHub ' + res.getResponseCode())
   var content = JSON.parse(res.getContentText()).content.replace(/\n/g, '')
   var dev = ymlDeveloper(Utilities.newBlob(Utilities.base64Decode(content)).getDataAsString('UTF-8'))
   if (dev.toLowerCase() !== who.toLowerCase()) throw new Error('이 게임은 ' + dev + '만 수정할 수 있어요')
+  return false
 }
 
 // ---- helpers -----------------------------------------------------------------

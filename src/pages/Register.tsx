@@ -16,6 +16,9 @@ function useMyName() {
   return useStore((s) => s.session?.name ?? s.profile?.name.trim() ?? '')
 }
 const isMine = (g: Game, name: string) => !!name && g.developer.trim().toLowerCase() === name.toLowerCase()
+const isAdmin = (site: Site, name: string) => !!name && site.admins.some((a) => a.toLowerCase() === name.toLowerCase())
+/** Games `name` may edit: their own, or every game for an admin (site.yml `admins`). */
+const editable = (all: Game[], site: Site, name: string) => (isAdmin(site, name) ? all : all.filter((g) => isMine(g, name)))
 
 function NotMine({ name }: { name: string }) {
   return (
@@ -220,6 +223,7 @@ async function urlToB64(url: string) {
 
 export default function Register() {
   const { data } = useData()
+  const me = useMyName()
   const [params, setParams] = useSearchParams()
   const tab = params.get('guide') ? 'guide' : params.get('tab') ?? 'new'
   const setTab = (t: string) => setParams(t === 'new' ? {} : t === 'guide' ? { guide: '1' } : { tab: t })
@@ -232,7 +236,7 @@ export default function Register() {
         <div className="tabs-row" style={{ marginTop: 0, marginBottom: 20 }}>
           {[
             ['new', '새 게임 등록'],
-            ['edit', '내 게임 수정'],
+            ['edit', data && isAdmin(data.site, me) ? '게임 수정 (운영자)' : '내 게임 수정'],
             ['news', '패치 노트 올리기'],
             ['guide', '등록 가이드'],
           ].map(([k, l]) => (
@@ -259,7 +263,7 @@ export default function Register() {
 
 function EditPicker({ games: all, site }: { games: Game[]; site: Site }) {
   const me = useMyName()
-  const games = all.filter((g) => isMine(g, me))
+  const games = editable(all, site, me)
   const [id, setId] = useState('')
   const g = games.find((x) => x.id === id)
   if (!games.length) return <NotMine name={me} />
@@ -359,7 +363,9 @@ function GameForm({ games, site, existing, existingAbout }: { games: Game[]; sit
     const out: { path: string; data: string }[] = []
     const download = f.win === 'link' ? f.link : f.win === 'upload' && !exe ? existing?.download : undefined
     const downloadSize = f.win === 'upload' && exe ? `${Math.max(1, Math.round(exe.size / 1048576))} MB` : f.win === 'link' ? f.downloadSize : f.win === 'upload' ? existing?.downloadSize : undefined
-    out.push({ path: 'game.yml', data: btoa(unescape(encodeURIComponent(toYaml(site.registerEndpoint ? { ...f, developer: me } : f, { download, downloadSize, achievements: achList, updated })))) })
+    // An admin editing someone else's game keeps that game's developer.
+    const developer = existing && !isMine(existing, me) ? existing.developer : me
+    out.push({ path: 'game.yml', data: btoa(unescape(encodeURIComponent(toYaml(site.registerEndpoint ? { ...f, developer } : f, { download, downloadSize, achievements: achList, updated })))) })
     out.push({ path: 'about.md', data: btoa(unescape(encodeURIComponent(f.about || f.short))) })
     for (const s of Object.keys(SLOTS) as Slot[]) if (crops[s]) out.push({ path: `${s}.jpg`, data: b64(crops[s]!) })
     const newShots = shotFiles.map((_, i) => shotCrops[i]).filter(Boolean)
@@ -1158,7 +1164,7 @@ function SubmitStatus({ s, setS }: { s: SubmitState; setS: (s: SubmitState | nul
 
 function NewsForm({ games: all, site }: { games: Game[]; site: Site }) {
   const me = useMyName()
-  const games = all.filter((g) => isMine(g, me))
+  const games = editable(all, site, me)
   const [id, setId] = useState('')
   const [title, setTitle] = useState('')
   const [version, setVersion] = useState('')
