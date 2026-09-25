@@ -1,0 +1,16 @@
+title: "STOOP"
+title_en: "STOOP"
+developer: "gamzuha"
+release: 2026-09-25
+price: 14900
+discount: 10
+play_url: "https://gammja17.github.io/stoop/"
+repo: "https://github.com/Gammja17/stoop"
+version: "1.0.0"
+tags: ["생활 및 몰입형 시뮬레이션", "오픈 월드", "탐험", "생존", "분위기 있는"]
+short: "송골매가 되어 400 km/h로 내리꽂아 사냥하는 3D 라이프 시뮬레이션"
+controls: "마우스로 비행, Space/좌클릭 급강하, W 날갯짓, C 매의 눈, E 착지 (게임패드 지원)"
+ai_tools: ["Claude Code"]
+dev_period: "2일"
+engine: "Godot 4.7"
+updated: "2026-09-25T17:53:31.021Z"
