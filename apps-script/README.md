@@ -27,6 +27,10 @@ Apps Script 왼쪽 **프로젝트 설정(톱니바퀴) → 스크립트 속성 �
 
 레포를 동아리 Organization으로 옮기면 `REPO` 속성에 새 주소(예: `KING/skeam`)를 추가합니다.
 
+### (선택) AI 자동 채우기 켜기
+
+등록 도우미의 "✨ AI로 자동 채우기"는 Gemini를 씁니다. https://aistudio.google.com/apikey 에서 API 키를 만들고, 같은 스크립트 속성에 `GEMINI_API_KEY`로 넣으면 켜집니다. 로그인한 사람만, 한 사람당 하루 20번까지 쓸 수 있습니다. 모델은 쓸 수 있는 최신 Flash 모델을 자동으로 고르며, 고정하려면 `GEMINI_MODEL` 속성(예: `gemini-2.5-flash`)을 넣습니다.
+
 ## 4. 웹 앱으로 배포
 
 1. 오른쪽 위 **배포 → 새 배포 → 유형: 웹 앱**
