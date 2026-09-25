@@ -2,13 +2,14 @@ title: "무인도 친구들"
 title_en: "CASTAWAY BUDDIES"
 developer: "gamzuha"
 release: 2026-09-25
-price: 0
+price: 14900
+discount: 20
 play_url: "https://gammja17.github.io/CastawayBuddies/"
 repo: "https://github.com/Gammja17/CastawayBuddies"
-version: "1.0.0"
+version: "2.0.0"
 tags: ["시뮬레이션", "생존", "크래프팅", "3D", "멀티플레이", "생활 및 몰입형 시뮬레이션", "샌드박스 및 물리 시뮬레이션", "탐험"]
 short: "친구들과 손바닥만 한 무인도에 떠밀려 온 허접 로우폴리 협동 생존 게임, 시뮬레이션"
 ai_tools: ["Claude Code"]
 dev_period: "1일"
 engine: "Godot 4.7"
-updated: "2026-09-25T16:09:54.670Z"
+updated: "2026-09-25T16:10:58.770Z"
