@@ -6,9 +6,10 @@
 //
 // A PR passes when:
 //   - it only touches one games/<id>/ folder (no symlinks, game.yml kept),
-//   - its author may change that game: the repo owner, the game's own GitHub
-//     account (from `github:`, play_url or repo), or, for a new game, anyone
-//     in site.yml `trusted_github`,
+//   - it's a new game (anyone may add one, like the register desk), or its
+//     author may change that existing game: the repo owner, the game's own
+//     GitHub account (from `github:`, play_url or repo), or anyone in site.yml
+//     `trusted_github`,
 //   - the data build shows the game with no problems.
 // Writes ok=true|false to $GITHUB_OUTPUT and the reason to pr-check.md.
 
@@ -79,20 +80,16 @@ const site = yaml.load(fs.readFileSync('site.yml', 'utf8')) ?? {}
 const trusted = asList(site.trusted_github)
 const isNew = baseYml == null
 const owner = ownerOf(isNew ? headYml : baseYml)
-const why = same(PR_AUTHOR, REPO_OWNER)
-  ? '레포 주인'
-  : same(PR_AUTHOR, owner)
-    ? `이 게임의 GitHub 계정(${owner})`
-    : isNew && trusted.some((t) => same(t, PR_AUTHOR))
-      ? '신뢰 목록(site.yml trusted_github)에 있는 계정'
-      : ''
-if (!why) {
-  finish(false, [
-    isNew
-      ? `새 게임인데 보낸 사람(${PR_AUTHOR})이 게임 주소의 GitHub 계정(${owner || '알 수 없음'})과 다르고 신뢰 목록에도 없어요.`
-      : `이미 있는 게임 '${id}'의 GitHub 계정(${owner || '알 수 없음'})과 보낸 사람(${PR_AUTHOR})이 달라요.`,
-  ])
-}
+const why = isNew
+  ? '새 게임 등록'
+  : same(PR_AUTHOR, REPO_OWNER)
+    ? '레포 주인'
+    : same(PR_AUTHOR, owner)
+      ? `이 게임의 GitHub 계정(${owner})`
+      : trusted.some((t) => same(t, PR_AUTHOR))
+        ? '신뢰 목록(site.yml trusted_github)에 있는 계정'
+        : ''
+if (!why) finish(false, [`이미 있는 게임 '${id}'의 GitHub 계정(${owner || '알 수 없음'})과 보낸 사람(${PR_AUTHOR})이 달라요. 다른 사람 게임 수정은 운영자가 확인해요.`])
 
 // 3. Does it build cleanly? Swap in the PR's copy of the folder (data only)
 // and run the base branch's own build script.
