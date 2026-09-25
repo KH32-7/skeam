@@ -3121,3 +3121,60 @@ button.account-pill {
     max-width: 100%;
   }
 }
+
+/* register: quick fill box */
+.quickfill {
+  margin-bottom: 28px;
+  padding: 16px;
+  background: linear-gradient(135deg, rgba(103, 193, 245, 0.12), rgba(164, 208, 7, 0.08));
+  border: 1px solid rgba(103, 193, 245, 0.3);
+  border-radius: 4px;
+}
+.quickfill h3 {
+  margin: 0 0 4px;
+  color: #fff;
+  font-size: 16px;
+}
+.quickfill p {
+  margin: 0 0 12px;
+  font-size: 13px;
+}
+.qf-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+  align-items: stretch;
+}
+.qf-row input,
+.qf-row textarea {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid #1f3446;
+  border-radius: 3px;
+  color: #fff;
+  font-family: inherit;
+  font-size: 14px;
+}
+.qf-row textarea {
+  min-height: 90px;
+}
+.qf-row button {
+  flex: none;
+}
+.qf-row.small {
+  flex-wrap: wrap;
+  align-items: center;
+  font-size: 12px;
+  color: #8f98a0;
+}
+.qf-row.small .btn-gray {
+  height: 28px;
+  font-size: 12px;
+}
+@media (max-width: 700px) {
+  .qf-row {
+    flex-direction: column;
+  }
+}

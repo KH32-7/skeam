@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Cropper } from '../components/Cropper'
 import { StoreNav } from '../components/StoreNav'
@@ -400,6 +400,8 @@ function GameForm({ games, site, existing, existingAbout }: { games: Game[]; sit
       <div>
         {showErrors && !ok && <div className="notice err">빠진 항목이 {Object.keys(errors).length}개 있습니다. 빨간 글씨를 확인해 주세요.</div>}
 
+        <QuickFill f={f} site={site} onFill={(patch) => setF((x) => ({ ...x, ...patch }))} />
+
         <Section title="1. 기본 정보">
           <div className="row2">
             <div className="field">
@@ -789,6 +791,251 @@ function TagPicker({ value, used, onChange }: { value: string[]; used: string[];
         </div>
       )}
     </div>
+  )
+}
+
+// ---- quick fill: from a URL, from Gemini, or from a JSON form an AI filled -------
+
+type Fill = Partial<Form>
+
+/** owner/repo from a GitHub repo URL or a GitHub Pages address. */
+function repoOf(url: string) {
+  const gh = url.match(/github\.com\/([\w.-]+)\/([\w.-]+)/i)
+  if (gh) return `${gh[1]}/${gh[2].replace(/\.git$/, '')}`
+  const pages = url.match(/^https?:\/\/([\w-]+)\.github\.io\/?([\w.-]*)/i)
+  if (pages) return `${pages[1]}/${pages[2] || `${pages[1]}.github.io`}`
+  return ''
+}
+
+async function readSources(url: string) {
+  const repo = repoOf(url)
+  const playUrl = /github\.com\//i.test(url) ? '' : url
+  let readme = ''
+  let pageTitle = ''
+  let pageDescription = ''
+  if (repo) {
+    try {
+      const r = await fetch(`https://api.github.com/repos/${repo}/readme`, { headers: { Accept: 'application/vnd.github.raw' } })
+      if (r.ok) readme = await r.text()
+    } catch {
+      /* private repo or offline */
+    }
+  }
+  if (playUrl) {
+    try {
+      const html = await (await fetch(playUrl)).text()
+      const doc = new DOMParser().parseFromString(html, 'text/html')
+      pageTitle = doc.title.trim()
+      pageDescription = doc.querySelector('meta[name="description"], meta[property="og:description"]')?.getAttribute('content')?.trim() ?? ''
+    } catch {
+      /* the site doesn't allow reading it from here */
+    }
+  }
+  return { repo, playUrl, readme, pageTitle, pageDescription }
+}
+
+/** A README turned into a store description: players' parts only, headings as ###. */
+function aboutFromReadme(md: string) {
+  const out: string[] = []
+  let skip = false
+  for (const line of md.replace(/\r/g, '').split('\n')) {
+    const h = line.match(/^(#{1,6})\s+(.*)$/)
+    if (h) {
+      if (h[1] === '#' && !out.length) continue // the title itself
+      skip = /(설치|실행 방법|빌드|개발|구조|폴더|라이선스|license|install|build|develop|setup|structure|contribut|명령|command|test|검증|도구|tools|배포|deploy|문서)/i.test(h[2])
+      if (!skip) out.push(`### ${h[2].trim()}`)
+      continue
+    }
+    if (!skip) out.push(line)
+  }
+  return out.join('\n').replace(/\n{3,}/g, '\n\n').trim().slice(0, 4000)
+}
+
+function titleFromReadme(md: string) {
+  return md.match(/^#\s+(.+)$/m)?.[1].replace(/\(.*?\)/g, '').trim() ?? ''
+}
+
+/** Fields an AI (or a filled JSON form) gave back, as form values; empty ones are skipped. */
+function toFill(o: Record<string, unknown>): Fill {
+  const str = (v: unknown) => (typeof v === 'string' ? v.trim() : typeof v === 'number' ? String(v) : '')
+  const arr = (v: unknown) => (Array.isArray(v) ? v.map(str).filter(Boolean).join(', ') : str(v))
+  const fill: Fill = {}
+  const put = <K extends keyof Form>(k: K, v: string) => {
+    if (v) (fill as Record<string, unknown>)[k] = v
+  }
+  put('title', str(o.title))
+  put('titleEn', str(o.title_en ?? o.titleEn))
+  put('short', str(o.short))
+  put('about', str(o.about))
+  put('tags', arr(o.tags))
+  put('controls', str(o.controls))
+  put('aiTools', arr(o.ai_tools ?? o.aiTools))
+  put('devPeriod', str(o.dev_period ?? o.devPeriod))
+  put('aiNote', str(o.ai_note ?? o.aiNote))
+  put('engine', str(o.engine))
+  put('video', str(o.video))
+  put('playUrl', str(o.play_url ?? o.playUrl))
+  if (typeof o.price === 'number' || /^\d+$/.test(str(o.price))) put('price', str(o.price))
+  const repo = str(o.repo)
+  if (repo) Object.assign(fill, { repo, win: 'repo' as WinMode })
+  return fill
+}
+
+function downloadTemplate(me: string) {
+  const template = {
+    _안내:
+      '이 파일을 AI(ChatGPT, Claude, Gemini 등)에게 게임 설명·README·스크린샷과 함께 주고 "이 SKEAM 등록 양식을 채워서 JSON 파일로 돌려줘"라고 하세요. 키 이름은 바꾸지 마세요. 채운 파일은 SKEAM 등록 도우미의 "채운 양식 불러오기"로 올리면 됩니다. 이미지는 도우미에서 따로 올려요.',
+    title: '게임 제목 (한국어)',
+    title_en: '영어 제목 (선택)',
+    short: '상점 목록에 나오는 한 줄 소개, 60자 안팎',
+    about: '### 어떤 게임인가요\n\n마크다운 소개글. ### 소제목과 - 목록을 쓸 수 있어요. 설치 방법 같은 개발자용 내용은 빼 주세요.',
+    tags: ['기본태그 목록에서 4~8개'],
+    controls: '조작법 한 줄 (예: WASD 이동, 마우스 클릭)',
+    engine: '엔진·도구 (예: Godot 4.7, Unity, HTML/JavaScript)',
+    ai_tools: ['Claude Code'],
+    dev_period: '제작 기간 (예: 2주)',
+    ai_note: '제작 후기 한 줄 (선택)',
+    play_url: '브라우저 게임 주소 (예: https://아이디.github.io/게임/)',
+    repo: 'exe 게임이면 GitHub 레포 주소 (선택)',
+    price: 0,
+    developer: me,
+    _기본태그: DEFAULT_TAGS,
+  }
+  const blob = new Blob([JSON.stringify(template, null, 2)], { type: 'application/json' })
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob)
+  a.download = 'skeam-등록양식.json'
+  a.click()
+}
+
+/** Pulls the JSON object out of whatever the AI returned (code fences, chatter around it). */
+function parseFilledForm(text: string) {
+  const start = text.indexOf('{')
+  const end = text.lastIndexOf('}')
+  if (start < 0 || end <= start) throw new Error('JSON을 찾지 못했어요. AI가 준 답을 그대로 붙여넣어 주세요')
+  return JSON.parse(text.slice(start, end + 1)) as Record<string, unknown>
+}
+
+function QuickFill({ f, site, onFill }: { f: Form; site: Site; onFill: (patch: Fill) => void }) {
+  const me = useMyName()
+  const [url, setUrl] = useState(f.playUrl || f.repo)
+  const [notes, setNotes] = useState('')
+  const [busy, setBusy] = useState<'' | 'url' | 'ai'>('')
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const [paste, setPaste] = useState(false)
+  const [pasted, setPasted] = useState('')
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  const done = (fill: Fill, how: string) => {
+    onFill(fill)
+    const n = Object.keys(fill).filter((k) => k !== 'win').length
+    setMsg({ ok: true, text: `${how}: ${n}개 항목을 채웠어요. 아래에서 확인하고 고쳐 주세요.` })
+  }
+
+  const fromUrl = async () => {
+    if (!url.trim()) return setMsg({ ok: false, text: '게임 주소나 GitHub 레포 주소를 넣어 주세요' })
+    setBusy('url')
+    setMsg(null)
+    const src = await readSources(url.trim())
+    const fill: Fill = {}
+    if (src.playUrl) fill.playUrl = src.playUrl
+    if (src.repo && !src.playUrl) Object.assign(fill, { repo: `https://github.com/${src.repo}`, win: 'repo' as WinMode })
+    const t = titleFromReadme(src.readme) || src.pageTitle
+    if (t) fill.title = t
+    const about = src.readme ? aboutFromReadme(src.readme) : ''
+    if (about) fill.about = about
+    if (src.pageDescription) fill.short = src.pageDescription.slice(0, 90)
+    setBusy('')
+    if (!src.readme && !src.pageTitle) return setMsg({ ok: false, text: 'README나 페이지 정보를 읽지 못했어요 (비공개 레포이거나 다른 사이트일 수 있어요). AI 자동 채우기나 양식을 써 보세요.' })
+    done(fill, '주소에서 불러오기')
+  }
+
+  const withAi = async () => {
+    if (!site.registerEndpoint) return setMsg({ ok: false, text: '등록 창구가 연결되지 않아 AI를 쓸 수 없어요' })
+    if (!url.trim() && !notes.trim()) return setMsg({ ok: false, text: '게임 주소를 넣거나, 게임을 한두 줄로 설명해 주세요' })
+    setBusy('ai')
+    setMsg(null)
+    try {
+      const src = url.trim() ? await readSources(url.trim()) : { repo: '', playUrl: '', readme: '', pageTitle: '', pageDescription: '' }
+      const r = await fetch(site.registerEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'autofill', ...authFields(), tags: DEFAULT_TAGS, input: { ...src, repo: src.repo ? `https://github.com/${src.repo}` : '', notes } }),
+      })
+      const j = await r.json()
+      if (!j.ok) throw new Error(j.error)
+      const fill = toFill(j.fields)
+      if (src.playUrl) fill.playUrl = src.playUrl
+      if (src.repo && !src.playUrl) Object.assign(fill, { repo: `https://github.com/${src.repo}`, win: 'repo' as WinMode })
+      done(fill, `AI 자동 채우기 (오늘 ${j.left}번 남음)`)
+    } catch (e) {
+      setMsg({ ok: false, text: (e as Error).message })
+    } finally {
+      setBusy('')
+    }
+  }
+
+  const fromText = (text: string) => {
+    try {
+      const o = parseFilledForm(text)
+      done(toFill(o), '양식 불러오기')
+      setPaste(false)
+      setPasted('')
+    } catch (e) {
+      setMsg({ ok: false, text: `양식을 읽지 못했어요: ${(e as Error).message}` })
+    }
+  }
+
+  return (
+    <section className="quickfill">
+      <h3>빠르게 채우기</h3>
+      <p>하나씩 적기 번거로우면 아래 방법 중 하나로 한 번에 채우고, 이미지만 따로 올리면 돼요.</p>
+      <div className="qf-row">
+        <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="게임 주소 또는 GitHub 레포 (https://아이디.github.io/게임/)" />
+        <button className="btn-gray" disabled={!!busy} onClick={fromUrl}>
+          {busy === 'url' ? '읽는 중…' : '주소에서 불러오기'}
+        </button>
+      </div>
+      <div className="qf-row">
+        <input value={notes} maxLength={2000} onChange={(e) => setNotes(e.target.value)} placeholder="(AI용, 선택) 게임을 한두 줄로 설명해 주세요. 예: 손님 주문대로 요리하는 식당 경영 게임" />
+        <button className="btn-green" disabled={!!busy} onClick={withAi}>
+          {busy === 'ai' ? 'AI가 쓰는 중…' : '✨ AI로 자동 채우기'}
+        </button>
+      </div>
+      <div className="qf-row small">
+        <span>다른 AI를 쓰고 싶다면:</span>
+        <button className="btn-gray" onClick={() => downloadTemplate(me)}>
+          ① 양식 받기 (JSON)
+        </button>
+        <span className="hint">→ AI에게 게임 설명과 함께 주고 채워 달라고 하기 →</span>
+        <button className="btn-gray" onClick={() => fileRef.current?.click()}>
+          ② 채운 양식 불러오기
+        </button>
+        <button className="btn-gray" onClick={() => setPaste(!paste)}>
+          또는 붙여넣기
+        </button>
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".json,.txt,application/json,text/plain"
+          hidden
+          onChange={async (e) => {
+            const file = e.target.files?.[0]
+            if (file) fromText(await file.text())
+            e.target.value = ''
+          }}
+        />
+      </div>
+      {paste && (
+        <div className="qf-row">
+          <textarea value={pasted} onChange={(e) => setPasted(e.target.value)} placeholder="AI가 준 JSON 답을 그대로 붙여넣으세요" />
+          <button className="btn-gray" onClick={() => fromText(pasted)}>
+            채우기
+          </button>
+        </div>
+      )}
+      {msg && <div className={`notice ${msg.ok ? '' : 'err'}`}>{msg.text}</div>}
+    </section>
   )
 }
 

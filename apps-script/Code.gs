@@ -13,6 +13,8 @@
  * Script properties (Project Settings → Script properties):
  *   GITHUB_TOKEN  fine-grained token for the SKEAM repo only:
  *                 Contents: read & write, Actions: read & write
+ *   GEMINI_API_KEY  optional, from aistudio.google.com: turns on "AI로 자동 채우기"
+ *   GEMINI_MODEL    optional, e.g. gemini-2.5-flash (default: newest Flash model)
  *   REPO          optional, defaults to KH32-7/skeam
  *   BRANCH        optional, defaults to main
  */
@@ -47,6 +49,8 @@ function doPost(e) {
         return json(addReview(req))
       case 'status':
         return json(setStatus(req))
+      case 'autofill':
+        return json(autofill(req))
       default:
         return json({ ok: false, error: '알 수 없는 요청' })
     }
@@ -388,6 +392,128 @@ function logout(req) {
     ),
   )
   return { ok: true }
+}
+
+// ---- AI autofill (Gemini) ---------------------------------------------------------
+// The register helper sends what it knows (README, page title, a few words from the
+// creator); Gemini answers with store-page fields as JSON. Logged-in users only,
+// 20 calls per person per day, so the free tier is never exhausted by one person.
+
+var AI_DAILY_LIMIT = 20
+
+function autofill(req) {
+  var who = auth(req)
+  var key = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY')
+  if (!key) throw new Error('AI 자동 채우기가 아직 켜지지 않았어요 (운영자가 Gemini API 키를 넣어야 해요)')
+
+  var cache = CacheService.getScriptCache()
+  var day = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd')
+  var ck = 'ai:' + who.toLowerCase() + ':' + day
+  var used = Number(cache.get(ck) || 0)
+  if (used >= AI_DAILY_LIMIT) throw new Error('오늘 AI 자동 채우기를 ' + AI_DAILY_LIMIT + '번 다 썼어요. 내일 다시 해 주세요')
+
+  var i = req.input || {}
+  var clip = function (v, n) {
+    return String(v || '').slice(0, n)
+  }
+  var user = [
+    '제작자: ' + who,
+    '게임 주소: ' + clip(i.playUrl, 300),
+    'GitHub 레포: ' + clip(i.repo, 300),
+    '페이지 제목: ' + clip(i.pageTitle, 200),
+    '페이지 설명: ' + clip(i.pageDescription, 500),
+    '제작자가 쓴 메모: ' + clip(i.notes, 2000),
+    '',
+    '=== README ===',
+    clip(i.readme, 12000) || '(없음)',
+  ].join('\n')
+
+  var system = [
+    '너는 동아리 게임 상점 SKEAM(스팀 패러디)의 등록 도우미다. 주어진 정보로 상점 페이지 항목을 한국어로 채운다.',
+    '- title: 게임의 한국어 제목(원래 한국어 제목이 있으면 그대로). title_en: 영어 제목(있거나 자연스러우면).',
+    '- short: 상점 목록에 나올 한 줄 소개, 60자 안팎, 과장 없이 게임의 핵심 재미를 말한다.',
+    '- about: 상세 페이지 소개글, 마크다운. "### 소제목"과 "- 목록"을 써서 2~4개 섹션. 설치·빌드 방법, 개발용 명령어, 폴더 구조 같은 개발자용 내용은 빼고 플레이어가 궁금한 것(무엇을 하는 게임인지, 특징, 모드)만 쓴다. 정보에 없는 기능을 지어내지 않는다.',
+    '- tags: 4~8개. 아래 기본 태그 목록에서 우선 고르고, 꼭 필요할 때만 새 태그를 1~2개 만든다.',
+    '- controls: 조작법 한 줄(정보에 있을 때만, 없으면 빈 문자열).',
+    '- engine: 엔진이나 기술(예: Godot 4.7, Unity, HTML/JavaScript, Three.js). 모르면 빈 문자열.',
+    '- ai_note: 비워 둔다(제작자가 직접 쓰는 칸).',
+    '기본 태그 목록: ' + (req.tags || []).slice(0, 200).join(', '),
+  ].join('\n')
+
+  var body = {
+    systemInstruction: { parts: [{ text: system }] },
+    contents: [{ role: 'user', parts: [{ text: user }] }],
+    generationConfig: {
+      temperature: 0.6,
+      responseMimeType: 'application/json',
+      responseSchema: {
+        type: 'OBJECT',
+        properties: {
+          title: { type: 'STRING' },
+          title_en: { type: 'STRING' },
+          short: { type: 'STRING' },
+          about: { type: 'STRING' },
+          tags: { type: 'ARRAY', items: { type: 'STRING' } },
+          controls: { type: 'STRING' },
+          engine: { type: 'STRING' },
+        },
+        required: ['title', 'short', 'about', 'tags'],
+      },
+    },
+  }
+
+  var model = geminiModel(key)
+  var res = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent', {
+    method: 'post',
+    contentType: 'application/json',
+    headers: { 'x-goog-api-key': key },
+    payload: JSON.stringify(body),
+    muteHttpExceptions: true,
+  })
+  if (res.getResponseCode() >= 300) throw new Error('Gemini 오류 ' + res.getResponseCode() + ': ' + res.getContentText().slice(0, 200))
+  var out = JSON.parse(res.getContentText())
+  var text = (((out.candidates || [])[0] || {}).content || { parts: [] }).parts.map(function (p) {
+    return p.text || ''
+  }).join('')
+  var fields
+  try {
+    fields = JSON.parse(text)
+  } catch (e) {
+    throw new Error('AI 답을 읽지 못했어요. 한 번 더 눌러 주세요')
+  }
+  cache.put(ck, String(used + 1), 60 * 60 * 26)
+  return { ok: true, fields: fields, model: model, left: AI_DAILY_LIMIT - used - 1 }
+}
+
+/** GEMINI_MODEL if set, else the newest general Flash model this key can use (remembered for a day). */
+function geminiModel(key) {
+  var set = PropertiesService.getScriptProperties().getProperty('GEMINI_MODEL')
+  if (set) return set.replace(/^models\//, '')
+  var cache = CacheService.getScriptCache()
+  var hit = cache.get('gemini:model')
+  if (hit) return hit
+  var res = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200', { headers: { 'x-goog-api-key': key }, muteHttpExceptions: true })
+  if (res.getResponseCode() >= 300) throw new Error('Gemini 모델 목록을 못 받았어요 (' + res.getResponseCode() + '). API 키를 확인해 주세요')
+  var names = (JSON.parse(res.getContentText()).models || [])
+    .filter(function (m) {
+      var n = m.name || ''
+      return (
+        (m.supportedGenerationMethods || []).indexOf('generateContent') >= 0 &&
+        /gemini-[\d.]+-flash/.test(n) &&
+        !/(lite|image|tts|audio|live|thinking|exp|preview|embedding)/.test(n)
+      )
+    })
+    .map(function (m) {
+      return m.name.replace(/^models\//, '')
+    })
+    .sort(function (a, b) {
+      var va = parseFloat((a.match(/gemini-([\d.]+)/) || [])[1] || '0')
+      var vb = parseFloat((b.match(/gemini-([\d.]+)/) || [])[1] || '0')
+      return vb - va || a.length - b.length
+    })
+  var model = names[0] || 'gemini-2.5-flash'
+  cache.put('gemini:model', model, 60 * 60 * 24)
+  return model
 }
 
 // ---- ownership -------------------------------------------------------------------
