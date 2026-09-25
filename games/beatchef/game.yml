@@ -1,0 +1,18 @@
+title: "BEATCHEF"
+title_en: "BEATCHEF"
+developer: "gamzuha"
+release: 2026-09-25
+price: 8900
+discount: 1.125
+play_url: "https://gammja17.github.io/BeatChef/"
+repo: "https://github.com/Gammja17/BeatChef"
+version: "1.0.0"
+tags: ["아케이드 및 리듬", "요리", "캐주얼"]
+short: "비트에 맞춰 날아오는 재료를 썰어라! 내 mp3로도 즐기는 요리 리듬 액션"
+controls: "방향키/WASD 또는 마우스 스와이프로 썰기, ESC 일시정지, F1/F2 판정 타이밍 보정"
+ai_tools: ["Claude Code", "Suno AI"]
+dev_period: "3일"
+ai_note: "NHN 해커톤 사전과제 출품작 : 음악은 Suno AI로 직접 만들고, 로고·UI 아트는 생성형 AI로 만든 뒤 다듬었어요."
+engine: "Unity 6 (URP, WebGL)"
+video: "https://www.youtube.com/watch?v=ivl30xvtJHI"
+updated: "2026-09-25T17:50:52.241Z"
