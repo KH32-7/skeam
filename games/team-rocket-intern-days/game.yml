@@ -1,0 +1,15 @@
+title: "로켓단 신입사원"
+title_en: "Team Rocket Intern Days"
+developer: "gamzuha"
+release: 2026-09-25
+price: 0
+play_url: "https://gammja17.github.io/RocketIntern/"
+repo: "https://github.com/Gammja17/RocketIntern"
+version: "1.0.0"
+tags: ["시뮬레이션", "스토리 중심", "선택과 결과", "멀티 엔딩", "팬게임", "몰입형 시뮬레이션", "2D", "픽셀"]
+short: "포켓몬스터 팬게임. 로켓단 신입사원이 되어 불법 반입된 포켓몬들을 로켓단에게 넘기거나, 몰래 풀어주세요. 당신의 선택이 포켓몬들과 인간들의 운명을 좌우합니다."
+ai_tools: ["Claude Code"]
+dev_period: "1일"
+ai_note: "푸키몬 사랑해. 부디 이 게임을 내리게하지말아줘 (수익창출XXXXXXX)"
+engine: "Godot 4.7"
+updated: "2026-09-25T16:31:43.794Z"
