@@ -62,6 +62,18 @@ achievements:
     name: "마지막 경고"
     desc: "아폴로에게 마지막 경고를 받는다"
     code: RKT-B75E
+  - id: adopted
+    name: "한 식구"
+    desc: "뒷문 풀밭의 포켓몬을 원룸에 데려간다"
+    code: RKT-6A1E
+  - id: battle_win
+    name: "지급품의 반란"
+    desc: "포켓몬 배틀에서 처음으로 이긴다"
+    code: RKT-3D90
+  - id: rival
+    name: "옆집 애의 라이벌"
+    desc: "그린을 배틀에서 이긴다"
+    code: RKT-E57B
   - id: end_rocket
     name: "안 읽는 게 편해"
     desc: "아폴로를 따라 성도로 간다"
@@ -90,6 +102,14 @@ achievements:
     name: "뒷문으로 나간 사람"
     desc: "로켓단에서 해고된다"
     code: RKT-2979
+  - id: end_deal
+    name: "거래"
+    desc: "기록 상자로 형량을 산다"
+    code: RKT-91C4
+  - id: end_cuffed
+    name: "수갑"
+    desc: "검수 기록의 서명 때문에 체포된다"
+    code: RKT-5F28
   - id: end_locked
     name: "잠긴 창고"
     desc: "월세를 못 내고 갈 곳을 잃는다"
