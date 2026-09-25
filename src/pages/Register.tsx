@@ -17,8 +17,10 @@ function useMyName() {
 }
 const isMine = (g: Game, name: string) => !!name && g.developer.trim().toLowerCase() === name.toLowerCase()
 const isAdmin = (site: Site, name: string) => !!name && site.admins.some((a) => a.toLowerCase() === name.toLowerCase())
-/** Games `name` may edit: their own, or every game for an admin (site.yml `admins`). */
-const editable = (all: Game[], site: Site, name: string) => (isAdmin(site, name) ? all : all.filter((g) => isMine(g, name)))
+/** The logged-in account's name, if any: admin rights need a real login, not just a local nickname. */
+const useSessionName = () => useStore((s) => s.session?.name ?? '')
+/** Games `me` may edit: only their own, or every game for a logged-in admin (site.yml `admins`). */
+const editable = (all: Game[], site: Site, me: string, session: string) => (isAdmin(site, session) ? all : all.filter((g) => isMine(g, me)))
 
 function NotMine({ name }: { name: string }) {
   return (
@@ -223,7 +225,7 @@ async function urlToB64(url: string) {
 
 export default function Register() {
   const { data } = useData()
-  const me = useMyName()
+  const me = useSessionName()
   const [params, setParams] = useSearchParams()
   const tab = params.get('guide') ? 'guide' : params.get('tab') ?? 'new'
   const setTab = (t: string) => setParams(t === 'new' ? {} : t === 'guide' ? { guide: '1' } : { tab: t })
@@ -263,7 +265,8 @@ export default function Register() {
 
 function EditPicker({ games: all, site }: { games: Game[]; site: Site }) {
   const me = useMyName()
-  const games = editable(all, site, me)
+  const session = useSessionName()
+  const games = editable(all, site, me, session)
   const [id, setId] = useState('')
   const g = games.find((x) => x.id === id)
   if (!games.length) return <NotMine name={me} />
@@ -1164,7 +1167,8 @@ function SubmitStatus({ s, setS }: { s: SubmitState; setS: (s: SubmitState | nul
 
 function NewsForm({ games: all, site }: { games: Game[]; site: Site }) {
   const me = useMyName()
-  const games = editable(all, site, me)
+  const session = useSessionName()
+  const games = editable(all, site, me, session)
   const [id, setId] = useState('')
   const [title, setTitle] = useState('')
   const [version, setVersion] = useState('')
