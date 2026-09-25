@@ -1,0 +1,68 @@
+name: Auto-merge game PRs
+
+# Game updates sent as pull requests are merged automatically when
+# scripts/check-pr.mjs says they're safe; anything else stays open and shows
+# up in the admins' SKEAM notifications.
+#
+# pull_request_target runs with this repo's token even for PRs from forks, so
+# this workflow never runs code from the PR: it checks out the base branch and
+# only reads the PR's games/<id>/ files as data.
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+
+concurrency:
+  group: auto-merge-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    if: ${{ !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - run: git fetch --no-tags origin "+refs/pull/${{ github.event.pull_request.number }}/head:refs/pr/head"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+
+      - id: check
+        run: node scripts/check-pr.mjs
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          REPO_OWNER: ${{ github.repository_owner }}
+
+      - name: Merge and deploy
+        if: steps.check.outputs.ok == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          gh pr comment "$PR" --body-file pr-check.md
+          gh pr merge "$PR" --squash --match-head-commit "$HEAD_SHA"
+          # A merge made with GITHUB_TOKEN doesn't trigger the push workflow.
+          gh workflow run deploy.yml --ref "${{ github.event.pull_request.base.ref }}"
+
+      - name: Leave it for an admin
+        if: steps.check.outputs.ok != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: gh pr comment "$PR" --body-file pr-check.md

@@ -64,5 +64,6 @@ export interface Site {
   registerEndpoint: string
   repo: string
   problems: Record<string, string[]>
+  admins: string[]
   skipped: string[]
 }

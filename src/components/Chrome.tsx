@@ -70,6 +70,42 @@ export function useReviewAlerts() {
   return all.filter((r) => r.time > since)
 }
 
+interface OpenPr {
+  number: number
+  title: string
+  user: string
+  url: string
+}
+
+/**
+ * Open pull requests on the SKEAM repo, for admins (site.yml `admins`) only.
+ * A PR still open means it wasn't auto-merged and needs a look.
+ */
+export function useOpenPrs() {
+  const { data } = useData()
+  const me = useStore((s) => s.session?.name ?? '')
+  const [prs, setPrs] = useState<OpenPr[]>([])
+  const admin = !!data && !!me && data.site.admins.some((a) => a.toLowerCase() === me.toLowerCase())
+  const repo = data?.site.repo || 'KH32-7/skeam'
+  useEffect(() => {
+    if (!admin) return
+    const load = async () => {
+      try {
+        const r = await fetch(`https://api.github.com/repos/${repo}/pulls?state=open&per_page=20`, { cache: 'no-store' })
+        if (!r.ok) return
+        const list = (await r.json()) as { number: number; title: string; user: { login: string }; html_url: string }[]
+        setPrs(list.map((p) => ({ number: p.number, title: p.title, user: p.user.login, url: p.html_url })))
+      } catch {
+        /* offline */
+      }
+    }
+    load()
+    const t = setInterval(load, 5 * 60 * 1000)
+    return () => clearInterval(t)
+  }, [admin, repo])
+  return admin ? prs : []
+}
+
 /** Games wishlisted while coming soon that have since come out. */
 export function useReleased() {
   const { data } = useData()
@@ -95,7 +131,8 @@ export function Chrome() {
   const updates = useUpdates()
   const released = useReleased()
   const reviews = useReviewAlerts()
-  const alerts = updates.length + released.length + reviews.length
+  const prs = useOpenPrs()
+  const alerts = updates.length + released.length + reviews.length + prs.length
   const [menu, setMenu] = useState<'account' | 'bell' | null>(null)
   const isLibrary = loc.pathname.startsWith('/library')
   const isCommunity = loc.pathname.startsWith('/community')
@@ -165,6 +202,16 @@ export function Chrome() {
             <div className="modal" style={{ position: 'absolute', right: 0, top: 28, width: 320, zIndex: 60 }}>
               <div className="mb">
                 {alerts === 0 && <div style={{ color: '#8f98a0' }}>새 알림이 없습니다.</div>}
+                {prs.length > 0 && (
+                  <div style={{ padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,.08)' }}>
+                    <b style={{ color: '#f2c14e', display: 'block', fontSize: 12 }}>SKEAM 레포에 확인할 PR {prs.length}개</b>
+                    {prs.map((p) => (
+                      <a key={p.number} href={p.url} target="_blank" rel="noreferrer" style={{ display: 'block', fontSize: 12, marginTop: 2, color: '#c7d5e0' }}>
+                        #{p.number} {p.title} <span style={{ color: '#8f98a0' }}>· {p.user}</span>
+                      </a>
+                    ))}
+                  </div>
+                )}
                 {reviews.length > 0 && (
                   <a
                     href={`#/app/${reviews[0].game}?reviews=1`}

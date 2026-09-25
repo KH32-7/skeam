@@ -230,6 +230,9 @@ function Achievements({ g, achieved }: { g: Game; achieved: Record<string, numbe
   const [msg, setMsg] = useState('')
   const got = g.achievements.filter((a) => achieved[a.id])
   const hasCodes = g.achievements.some((a) => a.code)
+  // Show the game's own code shape, e.g. "RKT-XXXX".
+  const sample = g.achievements.find((a) => a.code)?.code ?? ''
+  const codeHint = sample.replace(/[A-Z0-9]/gi, (c, i) => (sample.slice(0, i).includes('-') ? 'X' : c)) || 'CODE-XXXX'
   const redeem = () => {
     const a = g.achievements.find((x) => x.code && x.code.toUpperCase() === code.trim().toUpperCase())
     if (!a) return setMsg('맞는 코드가 없습니다.')
@@ -256,13 +259,14 @@ function Achievements({ g, achieved }: { g: Game; achieved: Record<string, numbe
       </div>
       {hasCodes && (
         <div style={{ marginTop: 12 }}>
-          <div style={{ fontSize: 12, marginBottom: 4 }}>게임에서 받은 도전 과제 코드 입력</div>
+          <div style={{ fontSize: 12, marginBottom: 2 }}>도전 과제 코드 입력 (Windows판)</div>
+          <div style={{ fontSize: 11, color: '#8b929a', marginBottom: 6 }}>다운로드한 게임에서 도전 과제를 달성하면 코드가 나와요. 여기에 넣으면 SKEAM에도 달성돼요.</div>
           <div style={{ display: 'flex', gap: 6 }}>
             <input
               value={code}
               onChange={(e) => setCode(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && redeem()}
-              placeholder="KING-XXXX"
+              placeholder={codeHint}
               style={{ flex: 1, padding: '6px 8px', background: '#1c1f25', border: '1px solid #3d4450', color: '#fff', borderRadius: 2 }}
             />
             <button className="btn-gray" onClick={redeem}>

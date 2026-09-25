@@ -18,11 +18,23 @@ import fs from 'node:fs'
 import path from 'node:path'
 import * as yaml from 'js-yaml'
 import { marked } from 'marked'
+import sanitizeHtml from 'sanitize-html'
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1')), '..')
 const STRICT = process.argv.includes('--strict')
 const OUT_DATA = path.join(ROOT, 'public', 'data')
 const OUT_IMG = path.join(ROOT, 'public', 'g')
+
+// Markdown from creators ends up in the page as HTML: keep formatting, drop
+// scripts, event handlers and javascript: links.
+function md(text) {
+  return sanitizeHtml(marked.parse(String(text ?? '')), {
+    allowedTags: [...sanitizeHtml.defaults.allowedTags, 'img', 'h1', 'h2', 'del', 'details', 'summary'],
+    allowedAttributes: { a: ['href', 'title'], img: ['src', 'alt', 'title', 'width', 'height'], '*': ['align'] },
+    allowedSchemes: ['http', 'https', 'mailto'],
+    transformTags: { a: sanitizeHtml.simpleTransform('a', { target: '_blank', rel: 'noreferrer' }) },
+  })
+}
 
 const problems = []
 const problem = (id, msg) => problems.push(`[${id}] ${msg}`)
@@ -194,7 +206,7 @@ async function buildGame(id) {
 
   const aboutPath = path.join(dir, 'about.md')
   const aboutMd = exists(aboutPath) ? fs.readFileSync(aboutPath, 'utf8') : ''
-  const aboutHtml = aboutMd ? marked.parse(aboutMd) : ''
+  const aboutHtml = aboutMd ? md(aboutMd) : ''
 
   const achievements = (Array.isArray(y.achievements) ? y.achievements : []).map((a, i) => {
     const icon = a.icon && exists(path.join(dir, a.icon)) ? publish(id, path.join(dir, a.icon)) : ''
@@ -213,7 +225,7 @@ async function buildGame(id) {
         title: String(meta.title ?? f.replace(/\.md$/, '')),
         date: toDate(meta.date) || f.slice(0, 10),
         version: meta.version ? String(meta.version) : '',
-        html: marked.parse(body),
+        html: md(body),
         image: meta.image && exists(path.join(newsDir, meta.image)) ? publish(id, path.join(newsDir, meta.image)) : '',
       })
     }
@@ -269,7 +281,7 @@ async function buildGame(id) {
           title: r.release.name || r.release.tag_name,
           date: (r.release.published_at ?? '').slice(0, 10),
           version: game.version,
-          html: marked.parse(r.release.body || '새 버전이 나왔습니다.'),
+          html: md(r.release.body || '새 버전이 나왔습니다.'),
           image: '',
         })
       } else if (r.missing) {
@@ -297,7 +309,7 @@ function githubOf(g) {
 function buildClub(games) {
   const dir = path.join(ROOT, 'club')
   const y = exists(path.join(dir, 'club.yml')) ? readYaml(path.join(dir, 'club.yml')) : {}
-  const about = exists(path.join(dir, 'about.md')) ? marked.parse(fs.readFileSync(path.join(dir, 'about.md'), 'utf8')) : ''
+  const about = exists(path.join(dir, 'about.md')) ? md(fs.readFileSync(path.join(dir, 'about.md'), 'utf8')) : ''
   const pub = (p) => {
     const src = path.join(dir, p)
     if (!exists(src)) return ''
@@ -362,6 +374,7 @@ async function main() {
     registerEndpoint: String(siteYml.register_endpoint ?? process.env.SKEAM_REGISTER_ENDPOINT ?? ''),
     repo: String(siteYml.repo ?? process.env.GITHUB_REPOSITORY ?? ''),
     problems: problemsById,
+    admins: asList(siteYml.admins),
     skipped,
   }
 
