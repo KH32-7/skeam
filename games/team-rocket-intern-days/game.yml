@@ -13,3 +13,84 @@ dev_period: "1일"
 ai_note: "푸키몬 사랑해. 부디 이 게임을 내리게하지말아줘 (수익창출XXXXXXX)"
 engine: "Godot 4.7"
 updated: "2026-09-25T16:31:43.794Z"
+achievements:
+  - id: first_day
+    name: "첫 출근"
+    desc: "1주차 월요일을 마친다"
+    code: RKT-C474
+  - id: back_door
+    name: "뒷문"
+    desc: "처음으로 포켓몬을 뒷문으로 풀어준다"
+    code: RKT-4C0B
+  - id: no_sender
+    name: "보낸 사람 칸은 비워 두고"
+    desc: "처음으로 포켓몬을 주인에게 돌려보낸다"
+    code: RKT-2B8D
+  - id: ribbon
+    name: "분홍 리본"
+    desc: "솜이를 집으로 돌려보낸다"
+    code: RKT-F85C
+  - id: prize_case
+    name: "경품 진열장"
+    desc: "게임코너 진열장에서 초록이를 되찾는다"
+    code: RKT-D4F2
+  - id: m04
+    name: "M-04"
+    desc: "아보크를 로사에게 보여 준다"
+    code: RKT-B402
+  - id: empty_attic
+    name: "다락은 비어 있다"
+    desc: "로이를 끝까지 숨겨 준다"
+    code: RKT-CF73
+  - id: same_month
+    name: "같은 달 입사"
+    desc: "세나와 가까워진다"
+    code: RKT-13E5
+  - id: meadow_debt
+    name: "풀밭의 은혜"
+    desc: "뒷문 풀밭에서 돌본 포켓몬에게 도움을 받는다"
+    code: RKT-0964
+  - id: jackpot
+    name: "7 7 7"
+    desc: "게임코너 슬롯에서 잭팟을 터뜨린다"
+    code: RKT-98BD
+  - id: my_room
+    name: "내 방"
+    desc: "백화점에서 원룸 물건 다섯 개를 전부 산다"
+    code: RKT-52C3
+  - id: last_warning
+    name: "마지막 경고"
+    desc: "아폴로에게 마지막 경고를 받는다"
+    code: RKT-B75E
+  - id: end_rocket
+    name: "안 읽는 게 편해"
+    desc: "아폴로를 따라 성도로 간다"
+    code: RKT-35BD
+  - id: end_records
+    name: "기록 상자"
+    desc: "기록 상자를 들고 경찰에게 간다"
+    code: RKT-2473
+  - id: end_truck
+    name: "마지막 트럭"
+    desc: "선배들과 마지막 트럭을 몰고 나간다"
+    code: RKT-CAA8
+  - id: end_first
+    name: "첫 포켓몬"
+    desc: "관리 번호 001과 다시 만난다"
+    code: RKT-4B75
+  - id: end_turn
+    name: "돌아온 차례"
+    desc: "누군가 돌려준 이상해씨를 받는다"
+    code: RKT-CB2D
+  - id: end_empty
+    name: "빈 몬스터볼"
+    desc: "빈 몬스터볼을 들고 고향으로 돌아간다"
+    code: RKT-B10D
+  - id: end_fired
+    name: "뒷문으로 나간 사람"
+    desc: "로켓단에서 해고된다"
+    code: RKT-2979
+  - id: end_locked
+    name: "잠긴 창고"
+    desc: "월세를 못 내고 갈 곳을 잃는다"
+    code: RKT-89E7
