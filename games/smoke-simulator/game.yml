@@ -1,0 +1,16 @@
+title: "담배 시뮬레이터"
+title_en: "Smoke Simulator"
+developer: "TikalKim"
+release: 2026-09-26
+price: 4900000
+discount: 99.9
+version: "1.0.0"
+tags: ["시뮬레이션", "힐링"]
+short: "담배 피고 싶은 그대여 .."
+ai_tools: ["Codex"]
+dev_period: "1 hour"
+ai_note: "담배 피고 싶은데 집이라 피지 못해 어쩌구.."
+engine: "html"
+updated: "2026-09-26T16:42:36.114Z"
+download: "https://github.com/KH32-7/skeam/releases/download/smoke-simulator-v1.0.0/smoking-simulator.zip"
+download_size: "1 MB"
