@@ -1,7 +1,6 @@
 title: "DRAGONIA : RE"
 developer: "gamzuha"
-coming_soon: true
-release: "2026-09"
+release: 2026-09-26
 price: 78900
 play_url: "https://gammja17.github.io/DragoniaGodot/"
 repo: "https://github.com/Gammja17/DragoniaGodot"
@@ -12,4 +11,4 @@ controls: "WASD 이동, 공격 클릭, Q R F 스킬, SHIFT 대시"
 ai_tools: ["Claude Code"]
 dev_period: "1주"
 engine: "Godot 4.7"
-updated: "2026-09-24T18:33:38.406Z"
+updated: "2026-09-26T16:28:07.520Z"
