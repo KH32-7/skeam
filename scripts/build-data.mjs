@@ -155,6 +155,21 @@ async function latestRelease(repo) {
   }
 }
 
+/**
+ * Whether a web game's page loads skeam-sdk.js (needed for cloud saves and
+ * achievements). null when the page couldn't be read, so the site doesn't
+ * claim either way.
+ */
+async function hasSdk(url) {
+  try {
+    const res = await fetch(url, { headers: { 'User-Agent': 'skeam-build' }, signal: AbortSignal.timeout(10000) })
+    if (!res.ok) return null
+    return /skeam-sdk(\.min)?\.js/.test(await res.text())
+  } catch {
+    return null
+  }
+}
+
 function pickAsset(assets) {
   const score = (a) => (/\.zip$/i.test(a.name) ? 3 : /\.exe$/i.test(a.name) ? 2 : /\.(7z|rar)$/i.test(a.name) ? 1 : 0)
   return [...(assets ?? [])].sort((a, b) => score(b) - score(a))[0]
@@ -296,6 +311,7 @@ async function buildGame(id) {
   news.sort((a, b) => b.date.localeCompare(a.date) || compareVersions(b.version, a.version) || b.order.localeCompare(a.order))
   news.forEach((n) => delete n.order)
   game.platform = game.playUrl && game.download ? 'both' : game.playUrl ? 'web' : 'windows'
+  game.sdk = game.playUrl ? await hasSdk(game.playUrl) : false
   return game
 }
 

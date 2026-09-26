@@ -26,6 +26,8 @@ export interface Game {
   discount: number
   finalPrice: number
   playUrl: string
+  /** The web build loads skeam-sdk.js (cloud saves, achievements). null: couldn't check. */
+  sdk: boolean | null
   repo: string
   download: string
   downloadSize: string

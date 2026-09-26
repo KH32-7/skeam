@@ -277,6 +277,12 @@ const CLOUD_TEXT: Partial<Record<CloudStatus, string>> = {
   off: '로그인 필요',
 }
 
+/** No cloud saves: the store found no SDK in the game's page, or the game never answered here. */
+function useUnsupported(g: Game) {
+  const last = useRememberedCloud(g.id)
+  return g.sdk === false ? !last || last === 'unsupported' : g.sdk === null && last === 'unsupported'
+}
+
 /** Steam's "클라우드 상태": how the last session here ended, or what the account has in the cloud. */
 function CloudStat({ g }: { g: Game }) {
   const loggedIn = useStore((s) => !!s.session)
@@ -292,9 +298,11 @@ function CloudStat({ g }: { g: Game }) {
       alive = false
     }
   }, [g.id, loggedIn])
+  const unsupported = useUnsupported(g)
   let text: string
   let badge: 'ok' | 'bad' | undefined
-  if (!loggedIn) text = '로그인 필요'
+  if (unsupported) text = '지원 안 함'
+  else if (!loggedIn) text = '로그인 필요'
   else if (last && last !== 'off' && CLOUD_TEXT[last]) {
     text = CLOUD_TEXT[last]!
     badge = last === 'synced' ? 'ok' : 'bad'
@@ -311,6 +319,8 @@ const cloudKb = (n: number) => (n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` 
 /** Steam's "클라우드 상태": when this game was last saved to the account, and older copies to go back to. */
 function CloudCard({ g }: { g: Game }) {
   const loggedIn = useStore((s) => !!s.session)
+  const me = useStore((s) => s.session?.name ?? s.profile?.name ?? '')
+  const unsupported = useUnsupported(g)
   const [versions, setVersions] = useState<CloudVersion[] | null>(null)
   const [busy, setBusy] = useState(false)
   useEffect(() => {
@@ -341,7 +351,19 @@ function CloudCard({ g }: { g: Game }) {
   return (
     <div className="lib-card">
       <h4>SKEAM 클라우드</h4>
-      {!loggedIn ? (
+      {unsupported ? (
+        <div style={{ color: '#8b929a', fontSize: 13 }}>
+          이 게임은 SKEAM 클라우드 저장을 지원하지 않아요. 세이브는 이 기기에만 남아요.
+          <br />
+          제작자가 게임 index.html의 &lt;head&gt;에 SKEAM SDK 한 줄을 넣으면 지원돼요.
+          {me && me.toLowerCase() === g.developer.trim().toLowerCase() && (
+            <>
+              {' '}
+              <Link to="/register?guide=1">SDK 넣는 방법 보기</Link>
+            </>
+          )}
+        </div>
+      ) : !loggedIn ? (
         <div style={{ color: '#8b929a', fontSize: 13 }}>로그인하면 세이브 데이터가 클라우드에 저장돼서 다른 기기에서도 이어서 할 수 있어요.</div>
       ) : versions === null ? (
         <div style={{ color: '#8b929a', fontSize: 13 }}>클라우드 상태를 확인하는 중...</div>

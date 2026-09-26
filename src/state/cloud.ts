@@ -18,7 +18,7 @@ import { toast } from '../components/ui'
 import { authFields, call } from './account'
 import { useStore } from './store'
 
-export type CloudStatus = 'none' | 'off' | 'checking' | 'synced' | 'saving' | 'conflict' | 'error' | 'toolarge'
+export type CloudStatus = 'none' | 'unsupported' | 'off' | 'checking' | 'synced' | 'saving' | 'conflict' | 'error' | 'toolarge'
 
 export interface CloudConflict {
   /** When the cloud copy was saved. */
@@ -144,7 +144,7 @@ const kb = (n: number) => `${Math.max(1, Math.round(n / 1024))}KB`
  * conflict to ask about (Steam's "클라우드 동기화 충돌" dialog), and flush(),
  * which saves the latest state before leaving.
  */
-export function useCloudSync(gameId: string | undefined, frame: RefObject<HTMLIFrameElement | null>, origin: string) {
+export function useCloudSync(gameId: string | undefined, frame: RefObject<HTMLIFrameElement | null>, origin: string, sdk: boolean | null = null) {
   const loggedIn = useStore((s) => !!s.session)
   const [status, setStatus] = useState<CloudStatus>('none')
   const [savedAt, setSavedAt] = useState('')
@@ -160,7 +160,12 @@ export function useCloudSync(gameId: string | undefined, frame: RefObject<HTMLIF
     let heard = false
     const note = (text: string) => alive && setLog((l) => [...l.slice(-19), `${hhmm()} ${text}`])
     setLog([])
-    if (!loggedIn) note('로그인하지 않아서 이 기기에만 저장돼요')
+    // The store checks each game's page for the SDK when it builds; if it's
+    // missing, say so right away (a game that answers anyway still syncs).
+    if (sdk === false) {
+      setStatus('unsupported')
+      note('SKEAM SDK가 없는 게임이라 클라우드 저장을 지원하지 않아요')
+    } else setStatus('none')
     const post = (m: Record<string, unknown>) => frame.current?.contentWindow?.postMessage(m, origin)
     const cloudP = loggedIn ? getCloud(game) : null
     cloudP?.catch(() => {})
@@ -274,6 +279,7 @@ export function useCloudSync(gameId: string | undefined, frame: RefObject<HTMLIF
         )
       }
       if (!cloudP) {
+        note('로그인하지 않아서 이 기기에만 저장돼요')
         post({ skeam: 'cloud-off' })
         setStatus('off')
         return
@@ -342,12 +348,19 @@ export function useCloudSync(gameId: string | undefined, frame: RefObject<HTMLIF
     window.addEventListener('message', onMsg)
     // Games without the SDK (or with an old copy) never say hello.
     const quiet = window.setTimeout(() => {
-      if (!heard) note('이 게임에서 SKEAM SDK 응답이 없어요. SDK가 없으면 클라우드 저장이 안 돼요')
+      if (heard || !alive) return
+      if (sdk === true) {
+        note('게임에서 SKEAM SDK 응답이 없어요. 페이지를 새로고침해 보세요')
+        setStatus('error')
+      } else if (sdk === null) {
+        note('SKEAM SDK 응답이 없어서 클라우드 저장을 지원하지 않는 게임으로 봐요')
+        setStatus('unsupported')
+      }
     }, 15000)
 
     flushRef.current = () =>
       new Promise<void>((resolve) => {
-        if (!loggedIn || stopped) return resolve()
+        if (!loggedIn || stopped || !heard) return resolve()
         flushWaiters.push(resolve)
         post({ skeam: 'cloud-flush' })
         setTimeout(resolve, 8000)
@@ -362,7 +375,7 @@ export function useCloudSync(gameId: string | undefined, frame: RefObject<HTMLIF
       if (pending && !uploading && !stopped) kick(true)
       flushWaiters = []
     }
-  }, [gameId, loggedIn, frame, origin])
+  }, [gameId, loggedIn, frame, origin, sdk])
 
   useEffect(() => {
     if (gameId && status !== 'none') rememberCloud(gameId, status)

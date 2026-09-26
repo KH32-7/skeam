@@ -855,6 +855,39 @@ img {
   object-fit: contain;
   border: 0;
 }
+.media-arrow {
+  position: absolute;
+  top: 50%;
+  z-index: 1;
+  width: 40px;
+  height: 64px;
+  margin-top: -32px;
+  border: none;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  font-size: 40px;
+  line-height: 1;
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 0.15s, background 0.15s;
+}
+.media-arrow.left {
+  left: 0;
+}
+.media-arrow.right {
+  right: 0;
+}
+.media-main:hover .media-arrow {
+  opacity: 1;
+}
+.media-arrow:hover {
+  background: rgba(0, 0, 0, 0.7);
+}
+@media (hover: none) {
+  .media-arrow {
+    opacity: 0.8;
+  }
+}
 .media-strip {
   display: flex;
   gap: 4px;

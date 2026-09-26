@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Reviews, reviewLabel, useReviews } from '../components/Reviews'
 import { StoreNav } from '../components/StoreNav'
@@ -251,25 +251,83 @@ function App({ g, endpoint }: { g: Game; endpoint: string }) {
   )
 }
 
+const AUTO_MS = 5000
+
+/** Screenshots/video like Steam: arrows (on screen or the keyboard), thumbnails, and a slow auto-advance. */
 function Media({ g }: { g: Game }) {
   const vid = g.video ? youtubeId(g.video) : null
   const items = [...(vid ? [{ kind: 'video' as const, src: vid }] : []), ...g.images.screenshots.map((s) => ({ kind: 'img' as const, src: s }))]
   if (!items.length) items.push({ kind: 'img', src: g.images.header })
+  const n = items.length
   const [i, setI] = useState(0)
-  const cur = items[Math.min(i, items.length - 1)]
+  const [hover, setHover] = useState(false)
+  const [tick, setTick] = useState(0) // restarts the auto-advance timer after a manual move
+  const strip = useRef<HTMLDivElement>(null)
+  const idx = Math.min(i, n - 1)
+  const cur = items[idx]
+  const go = (d: number) => {
+    setI((v) => (v + d + n) % n)
+    setTick((t) => t + 1)
+  }
+
+  // Auto-advance; never away from a video someone may be watching, or while the pointer is on it.
+  useEffect(() => {
+    if (n < 2 || hover || cur.kind === 'video') return
+    const t = window.setTimeout(() => setI((v) => (v + 1) % n), AUTO_MS)
+    return () => clearTimeout(t)
+  }, [idx, n, hover, cur.kind, tick])
+
+  // ← / → anywhere on the page, unless typing.
+  useEffect(() => {
+    if (n < 2) return
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null
+      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return
+      if (e.key === 'ArrowLeft') go(-1)
+      else if (e.key === 'ArrowRight') go(1)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [n])
+
+  // Keep the selected thumbnail in view.
+  useEffect(() => {
+    const el = strip.current?.children[idx] as HTMLElement | undefined
+    const box = strip.current
+    if (el && box) box.scrollTo({ left: el.offsetLeft - box.clientWidth / 2 + el.clientWidth / 2, behavior: 'smooth' })
+  }, [idx])
+
   return (
     <div>
-      <div className="media-main">
+      <div className="media-main" onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
         {cur.kind === 'video' ? (
           <iframe src={`https://www.youtube-nocookie.com/embed/${cur.src}?rel=0`} title="영상" allow="autoplay; encrypted-media; fullscreen" allowFullScreen />
         ) : (
           <img src={cur.src} alt="" />
         )}
+        {n > 1 && (
+          <>
+            <button className="media-arrow left" aria-label="이전" onClick={() => go(-1)}>
+              ‹
+            </button>
+            <button className="media-arrow right" aria-label="다음" onClick={() => go(1)}>
+              ›
+            </button>
+          </>
+        )}
       </div>
-      {items.length > 1 && (
-        <div className="media-strip">
+      {n > 1 && (
+        <div className="media-strip" ref={strip}>
           {items.map((m, j) => (
-            <button key={m.src} className={j === i ? 'on' : ''} onClick={() => setI(j)}>
+            <button
+              key={m.src}
+              className={j === idx ? 'on' : ''}
+              onClick={() => {
+                setI(j)
+                setTick((t) => t + 1)
+              }}
+            >
               <img src={m.kind === 'video' ? `https://i.ytimg.com/vi/${m.src}/mqdefault.jpg` : m.src} alt="" />
               {m.kind === 'video' && <span className="play-ico">▶</span>}
             </button>

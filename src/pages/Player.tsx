@@ -24,11 +24,12 @@ export default function Player() {
       return '*'
     }
   }, [g?.playUrl])
-  const cloud = useCloudSync(g && owned && g.playUrl ? g.id : undefined, frame, origin)
+  const cloud = useCloudSync(g && owned && g.playUrl ? g.id : undefined, frame, origin, g?.sdk ?? null)
   const [leaving, setLeaving] = useState(false)
   // Like Steam: save to the cloud before the game closes.
   const exit = async (to: string) => {
-    setLeaving(true)
+    const syncing = cloud.status === 'synced' || cloud.status === 'saving'
+    if (syncing) setLeaving(true)
     await cloud.flush()
     nav(to)
   }
@@ -196,6 +197,7 @@ const kb = (n: number) => (n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${
 
 const CHIP: Record<CloudStatus, string> = {
   none: '',
+  unsupported: '☁ 클라우드 저장 지원 안 함',
   off: '☁ 로그인하면 클라우드에 저장돼요',
   checking: '☁ 클라우드 동기화 중...',
   synced: '☁ 클라우드 최신 상태',
@@ -210,7 +212,7 @@ function CloudChip({ status, savedAt }: { status: CloudStatus; savedAt: string }
   if (status === 'none') return null
   const bad = status === 'error' || status === 'conflict' || status === 'toolarge'
   return (
-    <span className="cloud-chip" style={{ color: bad ? '#e8a33d' : '#8fb9d8' }} title={savedAt ? `마지막 저장 ${when(savedAt)}` : undefined}>
+    <span className="cloud-chip" style={{ color: bad ? '#e8a33d' : status === 'unsupported' ? '#8b929a' : '#8fb9d8' }} title={savedAt ? `마지막 저장 ${when(savedAt)}` : undefined}>
       {CHIP[status]}
     </span>
   )
