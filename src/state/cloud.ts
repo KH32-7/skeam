@@ -130,7 +130,12 @@ interface Hello {
   dirty: boolean
   at: string
   hasData: boolean
+  env?: { idb: boolean; listing: string; dbs: string[]; lsKeys: number }
 }
+
+const hhmm = (d = new Date()) => d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+const shortWhen = (iso: string) => (iso ? new Date(iso).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '')
+const kb = (n: number) => `${Math.max(1, Math.round(n / 1024))}KB`
 
 /**
  * Runs cloud sync for the game in `frame`. Returns the status to show, a
@@ -142,12 +147,18 @@ export function useCloudSync(gameId: string | undefined, frame: RefObject<HTMLIF
   const [status, setStatus] = useState<CloudStatus>('none')
   const [savedAt, setSavedAt] = useState('')
   const [conflict, setConflict] = useState<CloudConflict | null>(null)
+  /** What happened, newest last: shown in the overlay so problems on a phone or tablet can be reported. */
+  const [log, setLog] = useState<string[]>([])
   const flushRef = useRef<() => Promise<void>>(async () => {})
 
   useEffect(() => {
     if (!gameId) return
     const game = gameId
     let alive = true
+    let heard = false
+    const note = (text: string) => alive && setLog((l) => [...l.slice(-19), `${hhmm()} ${text}`])
+    setLog([])
+    if (!loggedIn) note('로그인하지 않아서 이 기기에만 저장돼요')
     const post = (m: Record<string, unknown>) => frame.current?.contentWindow?.postMessage(m, origin)
     const cloudP = loggedIn ? getCloud(game) : null
     cloudP?.catch(() => {})
@@ -164,10 +175,17 @@ export function useCloudSync(gameId: string | undefined, frame: RefObject<HTMLIF
       flushWaiters.splice(0).forEach((f) => f())
     }
 
-    const restore = async (c: { ver: string; data: string }) => {
-      const data = await unpack(c.data)
-      base = c.ver
-      post({ skeam: 'cloud-restore', ver: c.ver, data })
+    const restore = async (c: { ver: string; size: number; data: string }) => {
+      note(`클라우드 저장(${shortWhen(c.ver)}, ${kb(c.size)})을 불러오는 중. 게임이 한 번 새로고침돼요`)
+      try {
+        const data = await unpack(c.data)
+        base = c.ver
+        post({ skeam: 'cloud-restore', ver: c.ver, data })
+      } catch (e) {
+        note(`클라우드 저장을 풀지 못했어요: ${(e as Error).message ?? e}`)
+        post({ skeam: 'cloud-off' })
+        if (alive) setStatus('error')
+      }
     }
 
     const kick = async (urgent = false) => {
@@ -218,6 +236,7 @@ export function useCloudSync(gameId: string | undefined, frame: RefObject<HTMLIF
         base = r.ver
         force = false
         last = Date.now()
+        note(`클라우드에 저장함 (${kb(size)})`)
         post({ skeam: 'cloud-saved', ver: r.ver, seq })
         if (alive) {
           setStatus('synced')
@@ -225,6 +244,7 @@ export function useCloudSync(gameId: string | undefined, frame: RefObject<HTMLIF
         }
       } catch (e) {
         if (alive) setStatus('error')
+        note(`클라우드 저장 실패, 1분 뒤 다시 시도: ${(e as Error).message ?? e}`)
         pending ??= { seq, data } // try again later
         timer = window.setTimeout(() => kick(), MIN_GAP)
         console.warn('SKEAM cloud upload failed', e)
@@ -236,6 +256,14 @@ export function useCloudSync(gameId: string | undefined, frame: RefObject<HTMLIF
     }
 
     const decide = async (h: Hello) => {
+      heard = true
+      if (h.env) {
+        const e = h.env
+        note(
+          `게임 연결됨. IndexedDB ${e.idb ? `사용 가능 (세이브 DB ${e.dbs.length}개${e.listing === 'probe' ? ', 목록 대신 직접 확인' : ''})` : '막힘'}, localStorage 키 ${e.lsKeys}개` +
+            (h.ver ? `, 마지막 동기화 ${shortWhen(h.ver)}${h.dirty ? ' 뒤로 바뀜' : ''}` : h.hasData ? ', 동기화한 적 없는 저장 있음' : ', 저장 없음'),
+        )
+      }
       if (!cloudP) {
         post({ skeam: 'cloud-off' })
         setStatus('off')
@@ -253,9 +281,11 @@ export function useCloudSync(gameId: string | undefined, frame: RefObject<HTMLIF
       }
       if (!alive) return
       if (!c.ver) {
+        note(h.hasData ? '클라우드가 비어 있어서 이 기기 저장을 올려요' : '클라우드와 이 기기 모두 저장이 없어요')
         post({ skeam: 'cloud-ready', upload: h.hasData })
         setStatus('synced')
       } else if (h.ver === c.ver) {
+        note(h.dirty ? '이 기기가 더 최신이라 클라우드에 올려요' : '클라우드와 이 기기가 같아요')
         base = c.ver
         post({ skeam: 'cloud-ready', upload: h.dirty })
         setStatus('synced')
@@ -264,6 +294,7 @@ export function useCloudSync(gameId: string | undefined, frame: RefObject<HTMLIF
         // New device, or this device hasn't changed since an older cloud copy.
         await restore(c)
       } else {
+        note('클라우드와 이 기기 저장이 서로 달라요. 어느 쪽을 쓸지 물어봐요')
         setStatus('conflict')
         setConflict({
           cloudAt: c.ver,
@@ -290,9 +321,20 @@ export function useCloudSync(gameId: string | undefined, frame: RefObject<HTMLIF
         pending = { seq: Number(m.seq) || 0, data: m.data }
         kick(!last || flushWaiters.length > 0)
       } else if (m.skeam === 'cloud-clean') settle()
-      else if (m.skeam === 'cloud-gaveup' && alive) setStatus('error')
+      else if (m.skeam === 'cloud-gaveup' && alive) {
+        note('게임이 클라우드 응답을 기다리다 먼저 시작했어요')
+        setStatus('error')
+      } else if (m.skeam === 'cloud-unavailable') {
+        heard = true
+        note(`이 브라우저가 게임 창의 저장소(${m.reason})를 막고 있어서 클라우드 저장을 쓸 수 없어요`)
+        if (alive) setStatus('error')
+      } else if (m.skeam === 'cloud-log') note(String(m.text))
     }
     window.addEventListener('message', onMsg)
+    // Games without the SDK (or with an old copy) never say hello.
+    const quiet = window.setTimeout(() => {
+      if (!heard) note('이 게임에서 SKEAM SDK 응답이 없어요. SDK가 없으면 클라우드 저장이 안 돼요')
+    }, 15000)
 
     flushRef.current = () =>
       new Promise<void>((resolve) => {
@@ -306,12 +348,57 @@ export function useCloudSync(gameId: string | undefined, frame: RefObject<HTMLIF
       alive = false
       window.removeEventListener('message', onMsg)
       clearTimeout(timer)
+      clearTimeout(quiet)
       // Leaving the player: send whatever is waiting now instead of in a minute.
       if (pending && !uploading && !stopped) kick(true)
       flushWaiters = []
     }
   }, [gameId, loggedIn, frame, origin])
 
+  useEffect(() => {
+    if (gameId && status !== 'none') rememberCloud(gameId, status)
+  }, [gameId, status])
+
   const flush = useCallback(() => flushRef.current(), [])
-  return { status, savedAt, conflict, flush }
+  return { status, savedAt, conflict, flush, log }
+}
+
+// ---- last known state per game, on this device (for the library's "클라우드 상태") ----
+
+const MEMO_KEY = 'skeam:cloud-state'
+const memoListeners = new Set<() => void>()
+
+function readMemo(): Record<string, CloudStatus> {
+  try {
+    return JSON.parse(localStorage.getItem(MEMO_KEY) || '{}') || {}
+  } catch {
+    return {}
+  }
+}
+
+/** Remembers how the last session of a game ended up. 'none' means the game has no SDK. */
+export function rememberCloud(game: string, status: CloudStatus) {
+  if (status === 'checking' || status === 'saving') return
+  const m = readMemo()
+  if (m[game] === status) return
+  m[game] = status
+  try {
+    localStorage.setItem(MEMO_KEY, JSON.stringify(m))
+  } catch {
+    /* ignore */
+  }
+  memoListeners.forEach((l) => l())
+}
+
+export function useRememberedCloud(game: string): CloudStatus | undefined {
+  const [v, setV] = useState(() => readMemo()[game])
+  useEffect(() => {
+    const l = () => setV(readMemo()[game])
+    l()
+    memoListeners.add(l)
+    return () => {
+      memoListeners.delete(l)
+    }
+  }, [game])
+  return v
 }

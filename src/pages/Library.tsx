@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { newsKey } from '../components/Chrome'
 import { Loading, Modal, toast } from '../components/ui'
 import { useData } from '../data/api'
 import { hours, koDate, shortDate } from '../format'
-import { listCloud, revertCloud, type CloudVersion } from '../state/cloud'
+import { listCloud, revertCloud, useRememberedCloud, type CloudStatus, type CloudVersion } from '../state/cloud'
 import { markLaunched, markNewsSeen, NONE, unlockAchievement, useStore, type Owned } from '../state/store'
 import type { Game } from '../types'
 
@@ -108,6 +108,7 @@ function LibHome({ games, owned, missing }: { games: Game[]; owned: Record<strin
 function GameView({ g, o }: { g: Game; o: Owned }) {
   const nav = useNavigate()
   const [install, setInstall] = useState(false)
+  const [menu, setMenu] = useState(false)
   const achieved = useStore((s) => s.achievements[g.id] ?? NONE)
   const upd = needsUpdate(g, o)
   const got = g.achievements.filter((a) => achieved[a.id])
@@ -129,46 +130,46 @@ function GameView({ g, o }: { g: Game; o: Owned }) {
             {upd ? '⟳ 업데이트' : o.downloadedVersion ? '⬇ 다시 받기' : '⬇ 설치'}
           </button>
         ) : (
-          <div style={{ display: 'flex' }}>
+          <div className="play-split">
             <button className="btn-play" onClick={play}>
-              ▶ 플레이
+              <svg width="18" height="20" viewBox="0 0 18 20" aria-hidden="true">
+                <path d="M2 1.5v17L17 10z" fill="currentColor" />
+              </svg>
+              플레이
             </button>
-            {g.platform === 'both' && (
-              <button className="btn-play" style={{ padding: '0 12px', marginLeft: 1, fontSize: 14 }} title="Windows 버전 받기" onClick={() => setInstall(true)}>
-                ▼
-              </button>
+            <button className="btn-play caret" title="다른 방법으로 실행" onClick={() => setMenu((v) => !v)}>
+              <svg width="12" height="8" viewBox="0 0 12 8" aria-hidden="true">
+                <path d="M0 0h12L6 8z" fill="currentColor" />
+              </svg>
+            </button>
+            {menu && (
+              <div className="play-menu" onMouseLeave={() => setMenu(false)}>
+                <button onClick={play}>▶ SKEAM에서 플레이</button>
+                {g.playUrl && <button onClick={() => (setMenu(false), window.open(g.playUrl, '_blank'))}>↗ 새 탭에서 열기 (클라우드 저장 안 됨)</button>}
+                {g.platform === 'both' && <button onClick={() => (setMenu(false), setInstall(true))}>⬇ Windows 버전 받기</button>}
+              </div>
             )}
           </div>
         )}
         {g.platform === 'windows' ? (
           <>
-            <div className="lib-stat">
-              필요한 공간<b>{g.downloadSize || '—'}</b>
-            </div>
-            <div className="lib-stat">
-              최신 버전<b>{g.version ? `v${g.version}` : '—'}</b>
-            </div>
-            <div className="lib-stat">
-              받은 버전<b>{o.downloadedVersion ? `v${o.downloadedVersion}` : '아직 안 받음'}</b>
-            </div>
+            <LibStat icon="disk" label="필요한 공간" value={g.downloadSize || '-'} />
+            <LibStat icon="tag" label="최신 버전" value={g.version ? `v${g.version}` : '-'} />
+            <LibStat icon="check" label="받은 버전" value={o.downloadedVersion ? `v${o.downloadedVersion}` : '아직 안 받음'} />
           </>
         ) : (
           <>
-            <div className="lib-stat">
-              마지막 실행<b>{o.lastPlayed ? shortDate(o.lastPlayed) : '아직 안 함'}</b>
-            </div>
-            <div className="lib-stat">
-              사용 시간<b>{hours(o.playtime)}</b>
-            </div>
+            <CloudStat g={g} />
+            <LibStat label="마지막 플레이" value={o.lastPlayed ? shortDate(o.lastPlayed) : '아직 안 함'} />
+            <LibStat icon="clock" label="플레이 시간" value={hours(o.playtime)} />
           </>
         )}
         {g.achievements.length > 0 && (
-          <div className="lib-stat">
-            도전 과제
-            <b>
-              {got.length}/{g.achievements.length}
-            </b>
-          </div>
+          <LibStat icon="medal" label="도전 과제" value={`${got.length}/${g.achievements.length}`}>
+            <div className="ach-bar">
+              <i style={{ width: `${(got.length / g.achievements.length) * 100}%` }} />
+            </div>
+          </LibStat>
         )}
       </div>
       <div className="lib-links">
@@ -225,6 +226,83 @@ function GameView({ g, o }: { g: Game; o: Owned }) {
       {install && <InstallModal g={g} onClose={() => setInstall(false)} />}
     </div>
   )
+}
+
+// ---- Steam-style stats in the bar under the hero image ----
+
+const ICONS: Record<string, ReactNode> = {
+  cloud: <path d="M8 19h10a4.5 4.5 0 0 0 .6-8.96A6.5 6.5 0 0 0 6.1 9.2 5 5 0 0 0 8 19z" />,
+  clock: (
+    <>
+      <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="2" />
+      <path d="M12 7v5.5l3.5 2" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </>
+  ),
+  medal: (
+    <>
+      <path d="M8 13l-3 8 4-1.5L11 22l1-6zM16 13l3 8-4-1.5L13 22l-1-6z" />
+      <path d="M12 2l2.2 1.6 2.7-.1.8 2.6 2.2 1.6-.9 2.6.9 2.6-2.2 1.6-.8 2.6-2.7-.1L12 18l-2.2-1.6-2.7.1-.8-2.6L4.1 12.3 5 9.7l-.9-2.6 2.2-1.6.8-2.6 2.7.1z" />
+    </>
+  ),
+  disk: <path d="M4 4h13l3 3v13H4zM7 4v5h9V4M7 14h10v6H7z" fill="none" stroke="currentColor" strokeWidth="2" />,
+  tag: <path d="M3 3h8l10 10-8 8L3 11zM7.5 7.5h.01" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />,
+  check: <path d="M4 12.5l5 5L20 6.5" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />,
+}
+
+function LibStat({ icon, label, value, badge, children }: { icon?: string; label: string; value: string; badge?: 'ok' | 'bad'; children?: ReactNode }) {
+  return (
+    <div className="lib-stat">
+      {icon && (
+        <span className="lib-stat-icon">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            {ICONS[icon]}
+          </svg>
+          {badge && <span className={`lib-stat-badge ${badge}`}>{badge === 'ok' ? '✓' : '!'}</span>}
+        </span>
+      )}
+      <div>
+        <span className="lib-stat-label">{label}</span>
+        <b>{value}</b>
+        {children}
+      </div>
+    </div>
+  )
+}
+
+const CLOUD_TEXT: Partial<Record<CloudStatus, string>> = {
+  synced: '동기화 완료',
+  conflict: '동기화 충돌',
+  error: '동기화 실패',
+  toolarge: '용량 초과',
+  off: '로그인 필요',
+}
+
+/** Steam's "클라우드 상태": how the last session here ended, or what the account has in the cloud. */
+function CloudStat({ g }: { g: Game }) {
+  const loggedIn = useStore((s) => !!s.session)
+  const last = useRememberedCloud(g.id)
+  const [saved, setSaved] = useState<boolean | null>(null)
+  useEffect(() => {
+    if (!loggedIn) return
+    let alive = true
+    listCloud()
+      .then((all) => alive && setSaved(!!all[g.id]?.length))
+      .catch(() => alive && setSaved(null))
+    return () => {
+      alive = false
+    }
+  }, [g.id, loggedIn])
+  let text: string
+  let badge: 'ok' | 'bad' | undefined
+  if (!loggedIn) text = '로그인 필요'
+  else if (last && last !== 'off' && CLOUD_TEXT[last]) {
+    text = CLOUD_TEXT[last]!
+    badge = last === 'synced' ? 'ok' : 'bad'
+  } else if (saved) {
+    text = '클라우드에 저장됨'
+    badge = 'ok'
+  } else text = saved === false ? '저장 없음' : '확인 중'
+  return <LibStat icon="cloud" label="클라우드 상태" value={text} badge={badge} />
 }
 
 const cloudWhen = (iso: string) => new Date(iso).toLocaleString('ko-KR', { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })

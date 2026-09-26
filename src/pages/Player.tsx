@@ -156,6 +156,16 @@ export default function Player() {
           </div>
           <div className="panels">
             {g.achievements.length > 0 && <OverlayAchievements gameId={g.id} list={g.achievements} />}
+            {cloud.log.length > 0 && (
+              <div className="op">
+                <h4>클라우드 기록</h4>
+                <div style={{ fontSize: 12, lineHeight: 1.5 }}>
+                  {cloud.log.map((l, i) => (
+                    <div key={i}>{l}</div>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="op">
               <h4>조작법</h4>
               <div style={{ fontSize: 13 }}>{g.controls || '게임 안내를 참고하세요.'}</div>

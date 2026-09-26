@@ -57,21 +57,32 @@
   )
 
   if (!parent) return
-  var ls
+  // Some browsers (Safari in a frame from another site, strict privacy settings)
+  // block or limit storage here. Tell SKEAM why instead of failing silently.
+  var ls = null
+  var idb = null
   try {
     ls = window.localStorage
+    ls.getItem('__skeam_probe')
   } catch (e) {
-    return // storage blocked: nothing to save
+    ls = null
   }
-  if (!ls || !window.indexedDB) return
+  try {
+    idb = window.indexedDB || null
+  } catch (e) {
+    idb = null
+  }
+  if (!ls) {
+    send({ skeam: 'cloud-unavailable', reason: 'localStorage' })
+    return
+  }
 
   // ---- cloud saves ------------------------------------------------------------------
   var META = '__skeam_cloud'
   var origSet = Storage.prototype.setItem
   var origRemove = Storage.prototype.removeItem
   var origClear = Storage.prototype.clear
-  var origOpen = IDBFactory.prototype.open
-  var idb = window.indexedDB
+  var origOpen = idb ? IDBFactory.prototype.open : null
 
   var state = 'waiting' // until SKEAM answers
   var restoring = false
@@ -110,14 +121,45 @@
   function isCache(name) {
     return /cache/i.test(String(name))
   }
-  IDBFactory.prototype.open = function (name) {
-    if (gateOpen || this !== idb || isCache(name)) return origOpen.apply(this, arguments)
-    var args = arguments
-    var fake = deferredRequest()
-    queued.push(function () {
-      fake._bind(origOpen.apply(idb, args))
+  if (idb) {
+    IDBFactory.prototype.open = function (name) {
+      if (gateOpen || this !== idb || isCache(name)) return origOpen.apply(this, arguments)
+      var args = arguments
+      var fake = deferredRequest()
+      queued.push(function () {
+        fake._bind(origOpen.apply(idb, args))
+      })
+      return fake
+    }
+  }
+
+  /** Resolves with `fallback` if `p` hasn't settled in `ms` (some IndexedDB calls never answer in Safari frames). */
+  function within(p, ms, fallback) {
+    return new Promise(function (resolve) {
+      var done = false
+      var t = setTimeout(function () {
+        if (!done) {
+          done = true
+          resolve(fallback)
+        }
+      }, ms)
+      p.then(
+        function (v) {
+          if (!done) {
+            done = true
+            clearTimeout(t)
+            resolve(v)
+          }
+        },
+        function () {
+          if (!done) {
+            done = true
+            clearTimeout(t)
+            resolve(fallback)
+          }
+        },
+      )
     })
-    return fake
   }
 
   /** Looks like an IDBOpenDBRequest; forwards everything once the real one exists. */
@@ -203,7 +245,7 @@
     }
     return origClear.apply(this, arguments)
   }
-  ;['put', 'add', 'delete', 'clear'].forEach(function (name) {
+  ;(idb ? ['put', 'add', 'delete', 'clear'] : []).forEach(function (name) {
     var orig = IDBObjectStore.prototype[name]
     IDBObjectStore.prototype[name] = function () {
       var db = ''
@@ -227,28 +269,59 @@
     return keys
   }
 
+  // Where Godot (/userfs) and Unity/Emscripten (/idbfs) keep user files; checked
+  // one by one when the browser can't list databases.
+  var KNOWN_DBS = ['/userfs', '/idbfs', '/home/web_user']
+  var dbListing = 'none' // how the last listing worked, for SKEAM's diagnostics
+
+  function exists(name) {
+    return within(
+      new Promise(function (resolve) {
+        var req = origOpen.call(idb, name)
+        req.onupgradeneeded = function () {
+          req.transaction.abort() // didn't exist; don't create it
+        }
+        req.onsuccess = function () {
+          req.result.close()
+          resolve(true)
+        }
+        req.onerror = function (e) {
+          if (e && e.preventDefault) e.preventDefault()
+          resolve(false)
+        }
+      }),
+      1500,
+      false,
+    )
+  }
+
+  function probeDbs() {
+    return Promise.all(KNOWN_DBS.map(exists)).then(function (found) {
+      dbListing = 'probe'
+      return KNOWN_DBS.filter(function (n, i) {
+        return found[i]
+      })
+    })
+  }
+
   function listDbs() {
-    if (idb.databases) {
-      return idb.databases().then(
-        function (list) {
-          return list
-            .map(function (d) {
-              return d.name
-            })
-            .filter(function (n) {
-              return n && !isCache(n)
-            })
-        },
-        function () {
-          return []
-        },
-      )
-    }
-    return Promise.resolve([])
+    if (!idb) return Promise.resolve([])
+    if (!idb.databases) return probeDbs()
+    return within(idb.databases(), 1500, null).then(function (list) {
+      if (!list) return probeDbs()
+      dbListing = 'list'
+      return list
+        .map(function (d) {
+          return d.name
+        })
+        .filter(function (n) {
+          return n && !isCache(n)
+        })
+    })
   }
 
   function dumpDb(name) {
-    return new Promise(function (resolve) {
+    return within(new Promise(function (resolve) {
       var req = origOpen.call(idb, name)
       req.onupgradeneeded = function () {
         req.transaction.abort() // it didn't exist; don't create it
@@ -291,7 +364,7 @@
           resolve(null)
         }
       }
-    })
+    }), 8000, null)
   }
 
   function snapshot() {
@@ -309,16 +382,16 @@
   }
 
   function deleteDb(name) {
-    return new Promise(function (resolve) {
+    return within(new Promise(function (resolve) {
       var r = idb.deleteDatabase(name)
       r.onsuccess = r.onerror = r.onblocked = function () {
         resolve()
       }
-    })
+    }), 3000, null)
   }
 
   function createDb(d) {
-    return new Promise(function (resolve) {
+    return within(new Promise(function (resolve) {
       var req = origOpen.call(idb, d.name, d.version || 1)
       req.onupgradeneeded = function () {
         var db = req.result
@@ -343,7 +416,7 @@
         if (e && e.preventDefault) e.preventDefault()
         resolve()
       }
-    })
+    }), 8000, null)
   }
 
   function restore(snap, ver) {
@@ -356,12 +429,14 @@
     Object.keys(snap.ls || {}).forEach(function (k) {
       if (k !== META) origSet.call(ls, k, snap.ls[k])
     })
+    var dbs = idb ? snap.idb || [] : []
+    if (!idb && snap.idb && snap.idb.length) send({ skeam: 'cloud-log', text: '이 브라우저는 게임 창의 IndexedDB를 막아서 localStorage 부분만 불러왔어요' })
     return listDbs()
       .then(function (names) {
         return Promise.all(names.map(deleteDb))
       })
       .then(function () {
-        return Promise.all((snap.idb || []).map(createDb))
+        return Promise.all(dbs.map(createDb))
       })
       .then(function () {
         writeMeta({ ver: ver, dirty: false, at: new Date().toISOString() })
@@ -431,11 +506,22 @@
   var meta = readMeta()
   var hasLs = lsKeys().length > 0
   listDbs().then(function (names) {
-    send({ skeam: 'cloud-hello', v: 1, ver: meta.ver || '', dirty: !!meta.dirty, at: meta.at || '', hasData: hasLs || names.length > 0 })
+    send({
+      skeam: 'cloud-hello',
+      v: 1,
+      ver: meta.ver || '',
+      dirty: !!meta.dirty,
+      at: meta.at || '',
+      hasData: hasLs || names.length > 0,
+      env: { idb: !!idb, listing: dbListing, dbs: names, lsKeys: lsKeys().length },
+    })
+    // An old SKEAM, or a page that isn't SKEAM, never answers: don't hold the game.
+    setTimeout(function () {
+      if (!answered) giveUp()
+    }, 1500)
   })
   SKEAM.cloud = 'waiting'
-  // An old SKEAM, or a page that isn't SKEAM, never answers: don't hold the game.
-  // And never hold it longer than 25 seconds even if SKEAM's server is slow.
+  // Never hold the game longer than 25 seconds, even if SKEAM's server is slow.
   function giveUp() {
     if (state !== 'waiting') return
     state = 'off'
@@ -443,8 +529,5 @@
     openGate()
     send({ skeam: 'cloud-gaveup' })
   }
-  setTimeout(function () {
-    if (!answered) giveUp()
-  }, 1500)
   setTimeout(giveUp, 25000)
 })()

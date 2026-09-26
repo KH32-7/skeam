@@ -1616,17 +1616,98 @@ img {
 }
 .lib-stat {
   display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 15px;
+  color: #b8bcbf;
+}
+.lib-stat > div {
+  display: flex;
   flex-direction: column;
-  font-size: 13px;
-  text-transform: uppercase;
-  color: #8b929a;
-  letter-spacing: 0.05em;
+  line-height: 1.3;
+}
+.lib-stat-label {
+  color: #b8bcbf;
 }
 .lib-stat b {
-  color: #6d7a86;
-  color: #b8bcbf;
+  color: #7d8691;
   font-weight: 400;
-  text-transform: none;
+  font-size: 14px;
+}
+.lib-stat-icon {
+  position: relative;
+  display: inline-flex;
+  color: #676e76;
+}
+.lib-stat-badge {
+  position: absolute;
+  right: -2px;
+  bottom: 0;
+  display: grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #23272e;
+  color: #b8bcbf;
+  font-size: 10px;
+  font-weight: 700;
+}
+.lib-stat-badge.bad {
+  color: #e8a33d;
+}
+.ach-bar {
+  width: 140px;
+  height: 6px;
+  margin-top: 4px;
+  border-radius: 3px;
+  background: #3a3f46;
+  overflow: hidden;
+}
+.ach-bar i {
+  display: block;
+  height: 100%;
+  background: #1a9fff;
+}
+.play-split {
+  position: relative;
+  display: flex;
+  gap: 2px;
+}
+.play-split .btn-play {
+  min-width: 240px;
+  justify-content: center;
+}
+.play-split .btn-play.caret {
+  min-width: 0;
+  padding: 0 14px;
+  background: linear-gradient(90deg, #3cc54c 0, #25a94a 100%);
+}
+.play-menu {
+  position: absolute;
+  top: 52px;
+  left: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  min-width: 260px;
+  padding: 4px 0;
+  background: #3d4450;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.6);
+}
+.play-menu button {
+  padding: 9px 14px;
+  border: none;
+  background: none;
+  color: #dcdedf;
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+.play-menu button:hover {
+  background: #dcdedf;
+  color: #3d4450;
 }
 .lib-links {
   display: flex;
@@ -2907,6 +2988,19 @@ button.account-pill {
     height: 42px;
     padding: 0 22px;
     font-size: 18px;
+  }
+  .play-split .btn-play {
+    min-width: 160px;
+  }
+  .lib-stat {
+    font-size: 13px;
+  }
+  .lib-stat-icon svg {
+    width: 24px;
+    height: 24px;
+  }
+  .ach-bar {
+    width: 100px;
   }
   .lib-links {
     gap: 16px;
