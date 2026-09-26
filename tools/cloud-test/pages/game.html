@@ -1,0 +1,73 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Cloud test game</title>
+    <script src="http://localhost:5310/skeam-sdk.js"></script>
+  </head>
+  <body style="background: #123; color: #fff; font: 16px sans-serif">
+    <!-- One fake game per folder (/solo/, /a/, /b/): saves like a Godot web build
+         (IndexedDB "/userfs", file in app_userdata/game_<name>) plus a localStorage key. -->
+    <h2 id="title">Cloud test game</h2>
+    <div>localStorage coins: <b id="coins">?</b></div>
+    <div>IDBFS save file: <b id="file">?</b></div>
+    <script>
+      var NAME = location.pathname.split('/')[1]
+      var KEY = 'coins_' + NAME
+      var DIR = '/userfs/godot/app_userdata/game_' + NAME
+      var FILE = DIR + '/save.dat'
+      document.getElementById('title').textContent = 'Cloud test game ' + NAME
+      var coins = Number(localStorage.getItem(KEY) || 0)
+      document.getElementById('coins').textContent = coins
+      window.gameState = { coins: coins, file: null }
+
+      function openDb(cb) {
+        var req = indexedDB.open('/userfs', 21)
+        req.onupgradeneeded = function (e) {
+          var db = e.target.result
+          var st = db.objectStoreNames.contains('FILE_DATA') ? req.transaction.objectStore('FILE_DATA') : db.createObjectStore('FILE_DATA')
+          if (!st.indexNames.contains('timestamp')) st.createIndex('timestamp', 'timestamp', { unique: false })
+        }
+        req.onsuccess = function () {
+          cb(req.result)
+        }
+        req.onerror = function (e) {
+          e.preventDefault()
+        }
+      }
+      openDb(function (db) {
+        window.db = db
+        var r = db.transaction(['FILE_DATA'], 'readonly').objectStore('FILE_DATA').get(FILE)
+        r.onsuccess = function () {
+          var v = r.result
+          window.gameState.file = v ? new TextDecoder().decode(v.contents) : '(none)'
+          document.getElementById('file').textContent = window.gameState.file
+        }
+      })
+      function addCoin(done) {
+        coins++
+        localStorage.setItem(KEY, String(coins))
+        document.getElementById('coins').textContent = coins
+        var text = 'level=' + coins
+        var tx = window.db.transaction(['FILE_DATA'], 'readwrite')
+        var st = tx.objectStore('FILE_DATA')
+        st.put({ timestamp: new Date(), mode: 16893 }, DIR)
+        st.put({ timestamp: new Date(), mode: 33206, contents: new Int8Array(new TextEncoder().encode(text)) }, FILE)
+        tx.oncomplete = function () {
+          window.gameState = { coins: coins, file: text }
+          document.getElementById('file').textContent = text
+          done && done()
+        }
+      }
+      // The test runner can't click inside a cross-origin frame, so it asks by message.
+      window.addEventListener('message', function (e) {
+        if (!e.data || !e.data.test) return
+        var reply = function () {
+          e.source.postMessage({ testState: window.gameState, cloud: window.SKEAM && window.SKEAM.cloud }, '*')
+        }
+        if (e.data.test === 'add') addCoin(reply)
+        else reply()
+      })
+    </script>
+  </body>
+</html>

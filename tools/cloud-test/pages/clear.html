@@ -1,0 +1,24 @@
+<!doctype html>
+<html>
+  <body>
+    <script>
+      // Wipes this origin's storage: stands in for "a new device".
+      localStorage.clear()
+      indexedDB
+        .databases()
+        .then(function (list) {
+          return Promise.all(
+            list.map(function (d) {
+              return new Promise(function (res) {
+                var r = indexedDB.deleteDatabase(d.name)
+                r.onsuccess = r.onerror = r.onblocked = res
+              })
+            }),
+          )
+        })
+        .then(function () {
+          parent.postMessage({ testPage: 'done' }, '*')
+        })
+    </script>
+  </body>
+</html>

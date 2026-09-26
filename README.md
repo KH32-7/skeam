@@ -34,6 +34,8 @@ npm run build    # dist/
 
 `http://localhost:5173/?demo=1`로 열면 (개발 모드에서만) 게임 몇 개를 가진 데모 계정으로 시작합니다.
 
+`public/skeam-sdk.js`(클라우드 저장)나 `src/state/cloud.ts`를 고쳤다면 배포 전에 `tools/cloud-test/README.md`의 시험대를 돌리세요.
+
 ## `game.yml`
 
 ```yaml

@@ -1,0 +1,39 @@
+<!doctype html>
+<html>
+  <body>
+    <script>
+      // The DRAGONIA : RE bug (2026-09-27): game b's sync record remembers a folder
+      // covering every Godot game on the origin, and game a has a 2 MB file.
+      // An old-style record for game a also claims b's key by having read it.
+      localStorage.clear()
+      localStorage.setItem('__skeam_cloud:/b/', JSON.stringify({ ver: '', dirty: true, keys: [], roots: { '/userfs': '/userfs/godot/app_userdata' } }))
+      localStorage.setItem('__skeam_cloud:/a/', JSON.stringify({ ver: '', dirty: false, keys: ['coins_b'], roots: { '/userfs': '/userfs/godot' } }))
+      localStorage.setItem('coins_b', '7')
+      var del = indexedDB.deleteDatabase('/userfs')
+      del.onsuccess = del.onerror = del.onblocked = function () {
+        var req = indexedDB.open('/userfs', 21)
+        req.onupgradeneeded = function () {
+          var st = req.result.createObjectStore('FILE_DATA')
+          st.createIndex('timestamp', 'timestamp', { unique: false })
+        }
+        req.onsuccess = function () {
+          var db = req.result
+          var tx = db.transaction('FILE_DATA', 'readwrite')
+          var st = tx.objectStore('FILE_DATA')
+          var now = new Date()
+          ;['/userfs/godot', '/userfs/godot/app_userdata', '/userfs/godot/app_userdata/game_a', '/userfs/godot/app_userdata/game_b'].forEach(function (d) {
+            st.put({ timestamp: now, mode: 16893 }, d)
+          })
+          var big = new Int8Array(2 * 1024 * 1024)
+          for (var i = 0; i < big.length; i++) big[i] = (Math.random() * 256) | 0
+          st.put({ timestamp: now, mode: 33206, contents: big }, '/userfs/godot/app_userdata/game_a/huge.bin')
+          st.put({ timestamp: now, mode: 33206, contents: new Int8Array(new TextEncoder().encode('level=7')) }, '/userfs/godot/app_userdata/game_b/save.dat')
+          tx.oncomplete = function () {
+            db.close()
+            parent.postMessage({ testPage: 'done' }, '*')
+          }
+        }
+      }
+    </script>
+  </body>
+</html>

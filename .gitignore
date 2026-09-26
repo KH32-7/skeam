@@ -5,3 +5,7 @@ public/g
 _release
 *.local
 _shots
+
+# SKEAM 클라우드 시험대 (tools/cloud-test/setup.mjs on 이 만드는 것)
+public/__cloudtest/
+games/zz-cloudtest-*/

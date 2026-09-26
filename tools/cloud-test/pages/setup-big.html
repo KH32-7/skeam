@@ -1,0 +1,20 @@
+<!doctype html>
+<html>
+  <body>
+    <script>
+      // A 3 MB file inside game b's own folder: it should be left out, not fail the save.
+      var req = indexedDB.open('/userfs')
+      req.onsuccess = function () {
+        var db = req.result
+        var tx = db.transaction('FILE_DATA', 'readwrite')
+        var big = new Int8Array(3 * 1024 * 1024)
+        for (var i = 0; i < big.length; i++) big[i] = (Math.random() * 256) | 0
+        tx.objectStore('FILE_DATA').put({ timestamp: new Date(), mode: 33206, contents: big }, '/userfs/godot/app_userdata/game_b/replay.bin')
+        tx.oncomplete = function () {
+          db.close()
+          parent.postMessage({ testPage: 'done' }, '*')
+        }
+      }
+    </script>
+  </body>
+</html>

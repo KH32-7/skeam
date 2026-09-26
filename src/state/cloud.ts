@@ -177,6 +177,8 @@ export function useCloudSync(gameId: string | undefined, frame: RefObject<HTMLIF
     const game = gameId
     let alive = true
     let heard = false
+    const warned = new Set<string>()
+    const holds: number[] = []
     const note = (text: string) => alive && setLog((l) => [...l.slice(-19), `${hhmm()} ${text}`])
     setLog([])
     // The store checks each game's page for the SDK when it builds; if it's
@@ -331,12 +333,16 @@ export function useCloudSync(gameId: string | undefined, frame: RefObject<HTMLIF
       } else {
         note('클라우드와 이 기기 저장이 서로 달라요. 어느 쪽을 쓸지 물어봐요')
         setStatus('conflict')
+        // Keep the game waiting (it gives up after 25 s of silence) while the player decides.
+        const hold = window.setInterval(() => post({ skeam: 'cloud-wait' }), 10000)
+        holds.push(hold)
         setConflict({
           cloudAt: c.ver,
           cloudSize: c.size,
           localAt: h.at,
           midGame: false,
           choose: async (useCloud) => {
+            clearInterval(hold)
             setConflict(null)
             if (useCloud) return restore(c)
             base = c.ver
@@ -353,6 +359,11 @@ export function useCloudSync(gameId: string | undefined, frame: RefObject<HTMLIF
       const m = e.data as { skeam?: string } & Record<string, unknown>
       if (m.skeam === 'cloud-hello') decide(m as unknown as Hello)
       else if (m.skeam === 'cloud-snapshot') {
+        const left = ((m.data as { skipped?: { name: string; size: number }[] } | undefined)?.skipped ?? []).filter((x) => !warned.has(x.name))
+        if (left.length) {
+          left.forEach((x) => warned.add(x.name))
+          note(`1MB가 넘어 클라우드에서 뺀 항목: ${left.map((x) => `${x.name} (${Math.round(x.size / 1024)}KB)`).join(', ')}`)
+        }
         pending = { seq: Number(m.seq) || 0, data: m.data }
         kick(!last || flushWaiters.length > 0)
       } else if (m.skeam === 'cloud-clean') settle()
@@ -391,6 +402,7 @@ export function useCloudSync(gameId: string | undefined, frame: RefObject<HTMLIF
       window.removeEventListener('message', onMsg)
       clearTimeout(timer)
       clearTimeout(quiet)
+      holds.forEach((h) => clearInterval(h))
       // Leaving the player: send whatever is waiting now instead of in a minute.
       if (pending && !uploading && !stopped) kick(true)
       flushWaiters = []

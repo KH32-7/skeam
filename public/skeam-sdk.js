@@ -16,11 +16,13 @@
  * Several games often live on one origin (every game of a GitHub user shares
  * https://<user>.github.io, and so do their Godot builds' "/userfs" database).
  * So the SDK only ever touches this game's own data:
- *   - localStorage: the keys this game has read or written (never SKEAM's own).
+ *   - localStorage: the keys this game has written (never SKEAM's own).
  *   - IndexedDB with file-path keys (Godot, Unity): the folder that holds the
  *     files this game has written, e.g. /userfs/godot/app_userdata/<project>.
- *     Other folders in the same database are left alone.
- *   - Other IndexedDB databases: the whole database.
+ *     Never a folder shared by every game (/userfs, /idbfs, app_userdata...),
+ *     never two Godot projects merged. Other folders are left alone.
+ *   - Other IndexedDB databases: only ones this game has written to.
+ *   - Any single item over 1 MB is left out (and reported) so the rest syncs.
  * These are remembered per game, in the "__skeam_cloud:<game path>" localStorage
  * key (e.g. "__skeam_cloud:/RocketIntern/"). One key for the whole origin made
  * games on the same origin overwrite each other's sync state, so switching games
@@ -130,6 +132,11 @@
     }
   }
   var meta = readMeta()
+  if (meta.kv !== 3) {
+    meta.keys = []
+    meta.kv = 3
+    writeMeta(meta)
+  }
   function saveMeta(patch) {
     for (var k in patch) meta[k] = patch[k]
     writeMeta(meta)
@@ -143,12 +150,17 @@
         var name = ls.key(i)
         if (!name || name === META || name.indexOf(META_PREFIX + ':') !== 0) continue
         var m = JSON.parse(origGet.call(ls, name) || '{}') || {}
-        ;(Array.isArray(m.keys) ? m.keys : []).forEach(function (k) {
-          out.keys[k] = true
-        })
+        // Keys remembered by older SDKs include ones a game only read; they
+        // can't prove ownership, so they don't count until that game runs again.
+        if (m.kv === 3)
+          (Array.isArray(m.keys) ? m.keys : []).forEach(function (k) {
+            out.keys[k] = true
+          })
+        // A folder that covers shared storage isn't one game's; ignoring it keeps
+        // an old, too-wide record from hiding this game's own files.
         var r = m.roots && typeof m.roots === 'object' ? m.roots : {}
         Object.keys(r).forEach(function (db) {
-          ;(out.roots[db] = out.roots[db] || []).push(r[db])
+          if (!tooWide(r[db])) (out.roots[db] = out.roots[db] || []).push(r[db])
         })
       }
     } catch (e) {
@@ -221,8 +233,13 @@
     return !!t && (t === name || t.indexOf(name) >= 0)
   }
   /** A remembered folder that holds several games' data (from before this rule) is forgotten and learned again. */
+  // Mount points and engine folders shared by every game on an origin: Godot's
+  // /userfs and its app_userdata, Unity/Emscripten's /idbfs and /home/web_user.
+  // A game's own folder is always at least one level below these.
+  var SHARED_DIRS = ['/userfs/godot', '/userfs/godot/app_userdata', '/home/web_user']
   function tooWide(root) {
-    return root === '/' || root === '/userfs' || root === '/userfs/godot' || root === '/userfs/godot/app_userdata'
+    var depth = String(root).split('/').filter(Boolean).length
+    return depth < 2 || SHARED_DIRS.indexOf(root) >= 0
   }
   Object.keys(meta.roots).forEach(function (db) {
     if (tooWide(meta.roots[db])) {
@@ -358,11 +375,6 @@
     timer = setTimeout(upload, 3000)
   }
 
-  Storage.prototype.getItem = function (k) {
-    var v = origGet.apply(this, arguments)
-    if (this === ls && v !== null && !restoring) track(k)
-    return v
-  }
   Storage.prototype.setItem = function (k) {
     if (this === ls) {
       if (restoring) return
@@ -529,8 +541,8 @@
               var k = c.primaryKey
               if (isPathKey(k)) {
                 pathKeys = true
-                if (root && !isCache(k) && !otherOwns(o, name, k) && (inScope(k, root) || ancestorOf(k, root))) s.records.push([k, c.value])
-              } else if (ownDb) s.records.push([k, c.value])
+                if (root && !isCache(k) && !otherOwns(o, name, k) && (inScope(k, root) || ancestorOf(k, root)) && fits(name + ' ' + k, c.value)) s.records.push([k, c.value])
+              } else if (ownDb && fits(name + ' ' + String(k), c.value)) s.records.push([k, c.value])
               c.continue()
             }
             out.stores.push(s)
@@ -551,17 +563,43 @@
     )
   }
 
+  // Anything bigger than this is almost never a save (replays, recordings,
+  // screenshots, downloaded content). Left out so the rest still syncs.
+  var ITEM_LIMIT = 1024 * 1024
+  var skipped = []
+  function approxSize(v) {
+    if (v == null) return 0
+    if (typeof v === 'string') return v.length
+    if (v instanceof ArrayBuffer) return v.byteLength
+    if (ArrayBuffer.isView(v)) return v.byteLength
+    if (typeof Blob !== 'undefined' && v instanceof Blob) return v.size
+    if (typeof v === 'object') {
+      var n = 0
+      for (var k in v) n += k.length + approxSize(v[k])
+      return n
+    }
+    return 8
+  }
+  function fits(name, v) {
+    var n = approxSize(v)
+    if (n <= ITEM_LIMIT) return true
+    skipped.push({ name: name, size: n })
+    return false
+  }
+
   function snapshot() {
+    skipped = []
     var data = {}
     ownLsKeys().forEach(function (k) {
-      data[k] = origGet.call(ls, k)
+      var v = origGet.call(ls, k)
+      if (fits('localStorage "' + k + '"', v)) data[k] = v
     })
     return listDbs()
       .then(function (names) {
         return Promise.all(names.map(dumpDb))
       })
       .then(function (dbs) {
-        return { v: 2, ls: data, idb: dbs.filter(Boolean) }
+        return { v: 2, ls: data, idb: dbs.filter(Boolean), skipped: skipped }
       })
   }
 
@@ -792,7 +830,12 @@
   window.addEventListener('message', function (e) {
     if (e.source !== parent || !e.data || typeof e.data !== 'object') return
     var m = e.data
-    if (m.skeam === 'cloud-wait') answered = true
+    if (m.skeam === 'cloud-wait') {
+      // SKEAM is still deciding (e.g. the player is reading the conflict dialog).
+      answered = true
+      clearTimeout(giveUpTimer)
+      giveUpTimer = setTimeout(giveUp, 25000)
+    }
     else if (m.skeam === 'cloud-off') {
       answered = true
       state = 'off'
@@ -852,5 +895,5 @@
     openGate()
     send({ skeam: 'cloud-gaveup' })
   }
-  setTimeout(giveUp, 25000)
+  var giveUpTimer = setTimeout(giveUp, 25000)
 })()
