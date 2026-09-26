@@ -21,7 +21,11 @@
  *     files this game has written, e.g. /userfs/godot/app_userdata/<project>.
  *     Other folders in the same database are left alone.
  *   - Other IndexedDB databases: the whole database.
- * These are remembered in the "__skeam_cloud" localStorage key.
+ * These are remembered per game, in the "__skeam_cloud:<game path>" localStorage
+ * key (e.g. "__skeam_cloud:/RocketIntern/"). One key for the whole origin made
+ * games on the same origin overwrite each other's sync state, so switching games
+ * restored an old cloud copy. What another game on this origin has claimed (its
+ * keys and folders) is never backed up, deleted or replaced by this one.
  *
  * How it stays safe:
  *   1. On load the SDK tells SKEAM what this device has and holds back
@@ -87,7 +91,12 @@
   }
 
   // ---- state -----------------------------------------------------------------------
-  var META = '__skeam_cloud'
+  var META_PREFIX = '__skeam_cloud'
+  var GAME_PATH = (function () {
+    var p = location.pathname
+    return p.slice(0, p.lastIndexOf('/') + 1) || '/'
+  })()
+  var META = META_PREFIX + ':' + GAME_PATH
   var origGet = Storage.prototype.getItem
   var origSet = Storage.prototype.setItem
   var origRemove = Storage.prototype.removeItem
@@ -125,13 +134,40 @@
     writeMeta(meta)
   }
 
+  /** What the other games on this origin have claimed: {keys: {key: true}, roots: {db: [folder]}}. */
+  function others() {
+    var out = { keys: {}, roots: {} }
+    try {
+      for (var i = 0; i < ls.length; i++) {
+        var name = ls.key(i)
+        if (!name || name === META || name.indexOf(META_PREFIX + ':') !== 0) continue
+        var m = JSON.parse(origGet.call(ls, name) || '{}') || {}
+        ;(Array.isArray(m.keys) ? m.keys : []).forEach(function (k) {
+          out.keys[k] = true
+        })
+        var r = m.roots && typeof m.roots === 'object' ? m.roots : {}
+        Object.keys(r).forEach(function (db) {
+          ;(out.roots[db] = out.roots[db] || []).push(r[db])
+        })
+      }
+    } catch (e) {
+      /* ignore */
+    }
+    return out
+  }
+  function otherOwns(o, db, key) {
+    return (o.roots[db] || []).some(function (r) {
+      return inScope(key, r)
+    })
+  }
+
   // Anything with "cache" in its name is a cache (Unity's asset cache, Godot's
   // shader_cache), not a save: never held, backed up or replaced. Can be large.
   function isCache(name) {
     return /cache/i.test(String(name))
   }
   function ownKey(k) {
-    return typeof k === 'string' && k !== META && k.indexOf('skeam:') !== 0
+    return typeof k === 'string' && k.indexOf(META_PREFIX) !== 0 && k.indexOf('skeam:') !== 0
   }
 
   // ---- which localStorage keys are this game's ----------------------------------------
@@ -413,6 +449,7 @@
    */
   function dumpDb(name) {
     var root = meta.roots[name] || ''
+    var o = others()
     return within(
       new Promise(function (resolve) {
         var req = origOpen.call(idb, name)
@@ -446,7 +483,7 @@
               var k = c.primaryKey
               if (isPathKey(k)) {
                 pathKeys = true
-                if (root && !isCache(k) && (inScope(k, root) || ancestorOf(k, root))) s.records.push([k, c.value])
+                if (root && !isCache(k) && !otherOwns(o, name, k) && (inScope(k, root) || ancestorOf(k, root))) s.records.push([k, c.value])
               } else s.records.push([k, c.value])
               c.continue()
             }
@@ -549,7 +586,7 @@
   }
 
   /** Replaces this game's records: deletes what's in its folder, then writes the snapshot's. */
-  function restoreDb(d) {
+  function restoreDb(d, o) {
     return prepareDb(d).then(function (db) {
       if (!db) return 0
       return within(
@@ -563,6 +600,7 @@
             var inline = s.keyPath !== null && s.keyPath !== undefined && s.keyPath !== ''
             var putAll = function () {
               s.records.forEach(function (kv) {
+                if (isPathKey(kv[0]) && otherOwns(o, d.name, kv[0])) return
                 if (inline) st.put(kv[1])
                 else st.put(kv[1], kv[0])
               })
@@ -572,7 +610,7 @@
             st.openCursor().onsuccess = function (e) {
               var c = e.target.result
               if (c) {
-                if (isPathKey(c.primaryKey) && inScope(c.primaryKey, s.scope)) c.delete()
+                if (isPathKey(c.primaryKey) && inScope(c.primaryKey, s.scope) && !otherOwns(o, d.name, c.primaryKey)) c.delete()
                 c.continue()
               } else putAll()
             }
@@ -625,10 +663,12 @@
     restoring = true
     state = 'restoring'
     SKEAM.cloud = 'restoring'
-    // localStorage: only this game's keys.
+    // localStorage: only this game's keys, never one another game on this origin claims
+    // (cloud copies saved before per-game sync state can hold other games' keys and files).
+    var o = others()
     var incoming = {}
     Object.keys(snap.ls || {}).forEach(function (k) {
-      if (ownKey(k)) incoming[k] = snap.ls[k]
+      if (ownKey(k) && !o.keys[k]) incoming[k] = snap.ls[k]
     })
     meta.keys.forEach(function (k) {
       if (!(k in incoming)) origRemove.call(ls, k)
@@ -647,12 +687,16 @@
     return dbs
       .reduce(function (p, d) {
         return p.then(function () {
-          return restoreDb(d)
+          return restoreDb(d, o)
             .then(function (ok) {
               var sent = 0
               d.stores.forEach(function (s) {
                 sent += s.records.length
-                if (s.scope) meta.roots[d.name] = s.scope
+                // A scope that holds another game's folder is too wide to be this game's.
+                var wide = (o.roots[d.name] || []).some(function (r) {
+                  return inScope(r, s.scope)
+                })
+                if (s.scope && !wide) meta.roots[d.name] = s.scope
               })
               report.files += sent
               return visibleFiles(d).then(function (n) {
