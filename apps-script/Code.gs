@@ -5,7 +5,7 @@
  * commits the files to the SKEAM GitHub repo (which redeploys the site).
  * Reviews are stored in the "reviews" sheet of the spreadsheet this script
  * is attached to; accounts (nickname + password hash + synced data) in
- * "accounts"; status messages in "profiles".
+ * "accounts"; status messages in "profiles"; web games' cloud saves in "saves".
  *
  * Forgotten password: clear that person's "hash" cell in the accounts sheet.
  * Their next login sets whatever password they type, and their data stays.
@@ -51,6 +51,14 @@ function doPost(e) {
         return json(setStatus(req))
       case 'autofill':
         return json(autofill(req))
+      case 'cloudGet':
+        return json(cloudGet(req))
+      case 'cloudPut':
+        return json(cloudPut(req))
+      case 'cloudList':
+        return json(cloudList(req))
+      case 'cloudRevert':
+        return json(cloudRevert(req))
       default:
         return json({ ok: false, error: '알 수 없는 요청' })
     }
@@ -392,6 +400,162 @@ function logout(req) {
     ),
   )
   return { ok: true }
+}
+
+// ---- cloud saves ---------------------------------------------------------------------
+// Save data of web games (captured by skeam-sdk.js, gzipped + base64 by the site),
+// one row per version in the "saves" sheet: lower | game | ver | size | parts | data...
+// The data is split over columns because one cell holds at most 50,000 characters.
+// Every stored string gets a "~" prefix so Sheets never reads it as a formula or date.
+// The newest CLOUD_KEEP versions per game are kept so a bad save can be undone.
+
+var CLOUD_MAX = 2000000
+var CLOUD_PART = 45000
+var CLOUD_KEEP = 3
+var CLOUD_DATA_COL = 6
+
+function saveSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet()
+  var sh = ss.getSheetByName('saves')
+  if (!sh) {
+    sh = ss.insertSheet('saves')
+    sh.appendRow(['lower', 'game', 'ver', 'size', 'parts', 'data'])
+  }
+  return sh
+}
+
+var untilde = function (v) {
+  return String(v).replace(/^~/, '')
+}
+
+/** Versions of one account's saves, newest first: [{row, game, ver, size, parts}] */
+function cloudRows(sh, lower, game) {
+  var last = sh.getLastRow()
+  if (last < 2) return []
+  return sh
+    .getRange(2, 1, last - 1, 5)
+    .getValues()
+    .map(function (r, i) {
+      return { row: i + 2, lower: untilde(r[0]), game: untilde(r[1]), ver: untilde(r[2]), size: Number(r[3]) || 0, parts: Number(r[4]) || 0 }
+    })
+    .filter(function (r) {
+      return r.lower === lower && (!game || r.game === game)
+    })
+    .sort(function (a, b) {
+      return a.ver < b.ver ? 1 : a.ver > b.ver ? -1 : 0
+    })
+}
+
+function cloudData(sh, r) {
+  if (!r.parts) return ''
+  return sh
+    .getRange(r.row, CLOUD_DATA_COL, 1, r.parts)
+    .getValues()[0]
+    .map(untilde)
+    .join('')
+}
+
+function cloudWrite(sh, lower, game, data, size) {
+  var parts = []
+  for (var i = 0; i < data.length; i += CLOUD_PART) parts.push('~' + data.slice(i, i + CLOUD_PART))
+  var need = CLOUD_DATA_COL - 1 + parts.length
+  if (sh.getMaxColumns() < need) sh.insertColumnsAfter(sh.getMaxColumns(), need - sh.getMaxColumns())
+  var ver = new Date().toISOString()
+  sh.appendRow(['~' + lower, '~' + game, '~' + ver, size, parts.length].concat(parts))
+  // Keep the newest CLOUD_KEEP versions, plus the newest one older than an hour
+  // and the newest older than a day, so a bad save can't push out every backup.
+  // Delete the rest bottom row first so row numbers stay valid.
+  var rows = cloudRows(sh, lower, game)
+  var keep = rows.slice(0, CLOUD_KEEP)
+  ;[3600e3, 86400e3].forEach(function (age) {
+    var old = rows.filter(function (r) {
+      return Date.now() - new Date(r.ver).getTime() > age
+    })[0]
+    if (old && keep.indexOf(old) < 0) keep.push(old)
+  })
+  rows
+    .filter(function (r) {
+      return keep.indexOf(r) < 0
+    })
+    .map(function (r) {
+      return r.row
+    })
+    .sort(function (a, b) {
+      return b - a
+    })
+    .forEach(function (row) {
+      sh.deleteRow(row)
+    })
+  return ver
+}
+
+function cloudGame(req) {
+  if (!ID_RE.test(req.game || '')) throw new Error('게임 id가 올바르지 않습니다')
+  return req.game
+}
+
+/** Newest save of one game, or of a given version: {ver, size, data} ({ver: ''} when none). */
+function cloudGet(req) {
+  var lower = auth(req).toLowerCase()
+  var sh = saveSheet()
+  var rows = cloudRows(sh, lower, cloudGame(req))
+  var r = req.ver
+    ? rows.filter(function (x) {
+        return x.ver === req.ver
+      })[0]
+    : rows[0]
+  if (!r) return { ok: true, ver: '', size: 0, data: '' }
+  return { ok: true, ver: r.ver, size: r.size, data: cloudData(sh, r) }
+}
+
+/**
+ * Stores a new save. `base` is the version the device last synced with; if another
+ * device saved since, nothing is written and {conflict: true} comes back unless `force`.
+ */
+function cloudPut(req) {
+  var lower = auth(req).toLowerCase()
+  var game = cloudGame(req)
+  var data = String(req.data || '')
+  if (!data) throw new Error('저장할 데이터가 없습니다')
+  if (data.length > CLOUD_MAX) throw new Error('세이브 데이터가 너무 큽니다 (최대 약 1.5MB)')
+  var lock = LockService.getScriptLock()
+  lock.waitLock(20000)
+  try {
+    var sh = saveSheet()
+    var latest = cloudRows(sh, lower, game)[0]
+    if (latest && !req.force && latest.ver !== String(req.base || '')) return { ok: true, conflict: true, ver: latest.ver, size: latest.size }
+    return { ok: true, ver: cloudWrite(sh, lower, game, data, Number(req.size) || data.length) }
+  } finally {
+    lock.releaseLock()
+  }
+}
+
+/** Every game this account has saves for: {games: {id: [{ver, size}, ...newest first]}} */
+function cloudList(req) {
+  var lower = auth(req).toLowerCase()
+  var games = {}
+  cloudRows(saveSheet(), lower).forEach(function (r) {
+    ;(games[r.game] = games[r.game] || []).push({ ver: r.ver, size: r.size })
+  })
+  return { ok: true, games: games }
+}
+
+/** Makes an older version the newest again (copied, so nothing is lost). */
+function cloudRevert(req) {
+  var lower = auth(req).toLowerCase()
+  var game = cloudGame(req)
+  var lock = LockService.getScriptLock()
+  lock.waitLock(20000)
+  try {
+    var sh = saveSheet()
+    var r = cloudRows(sh, lower, game).filter(function (x) {
+      return x.ver === req.ver
+    })[0]
+    if (!r) throw new Error('그 저장 기록을 찾을 수 없어요')
+    return { ok: true, ver: cloudWrite(sh, lower, game, cloudData(sh, r), r.size) }
+  } finally {
+    lock.releaseLock()
+  }
 }
 
 // ---- AI autofill (Gemini) ---------------------------------------------------------

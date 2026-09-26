@@ -1296,6 +1296,18 @@ SKEAM.unlock("first_win")`}</pre>
       <pre style={code}>{`if OS.has_feature("web"):
     JavaScriptBridge.eval("window.SKEAM && SKEAM.unlock('first_win')")`}</pre>
       <p>SDK를 넣으면 게임 안에서 Shift+Tab을 눌러도 SKEAM 오버레이가 열립니다.</p>
+      <h3>클라우드 저장 (HTML 게임)</h3>
+      <p>
+        위의 SDK 한 줄을 index.html의 <code>&lt;head&gt;</code> 안에 넣으면 끝입니다. 게임 코드는 고칠 필요가 없어요. 플레이어가 SKEAM에 로그인해 있으면 게임의 세이브 데이터(localStorage, IndexedDB)가
+        계정에 저장되고, 컴퓨터, 태블릿, 휴대폰 어디서 들어가도 이어서 할 수 있어요. Godot의 <code>user://</code> 파일과 Unity의 PlayerPrefs도 여기에 들어갑니다.
+      </p>
+      <ul>
+        <li>
+          <b>꼭 &lt;head&gt; 안에</b> 넣어 주세요. 게임이 세이브를 읽기 전에 SDK가 먼저 클라우드 저장을 받아 와야 해요. Godot은 내보내기 설정의 <b>HTML → Head Include</b> 칸에 넣으면 됩니다.
+        </li>
+        <li>세이브 데이터는 압축해서 약 1.5MB까지 저장돼요. 이름에 cache가 들어간 IndexedDB(Unity 에셋 캐시 등)는 세이브가 아니라서 빠집니다.</li>
+        <li>두 기기에서 따로 진행했으면 게임을 시작할 때 어느 쪽을 쓸지 물어봐요. 이전 저장 몇 개는 라이브러리에서 되돌릴 수 있어요.</li>
+      </ul>
       <h3>도전 과제 넣기 (EXE 게임)</h3>
       <p>등록할 때 도전 과제마다 코드(예: KING-7F3A)를 정하고, 게임 안에서 달성하면 그 코드를 화면에 보여 주세요. 플레이어가 라이브러리에 입력하면 달성됩니다.</p>
       <h3>PR 머지만으로 새 exe 내기</h3>

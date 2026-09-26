@@ -12,7 +12,7 @@ async function endpoint() {
   return site.registerEndpoint
 }
 
-async function call<T = Record<string, unknown>>(action: string, body: Record<string, unknown>): Promise<T & { ok: true }> {
+export async function call<T = Record<string, unknown>>(action: string, body: Record<string, unknown>): Promise<T & { ok: true }> {
   const res = await fetch(await endpoint(), {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },

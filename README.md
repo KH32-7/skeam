@@ -21,7 +21,7 @@ git에 익숙하면 `games/<게임id>/` 폴더를 추가하는 PR을 보내도 �
 | `site.yml` | 홈 캐러셀에 걸 게임, 등록 창구 주소 |
 | `scripts/build-data.mjs` | 위 파일들을 검사해 `public/data/*.json`으로 만듦. 문제 있는 게임은 빼고 이유를 남김 |
 | `apps-script/` | 등록 창구와 리뷰를 맡는 Google Apps Script. 설정법은 `apps-script/README.md` |
-| `public/skeam-sdk.js` | HTML 게임이 도전 과제를 알리는 SDK |
+| `public/skeam-sdk.js` | HTML 게임용 SDK: 도전 과제, 오버레이, 클라우드 저장(`<head>`에 넣으면 localStorage·IndexedDB 세이브가 계정을 따라감) |
 | `.github/workflows/deploy.yml` | push, 매시간, 등록 창구 요청 때 빌드해서 Pages에 배포 |
 
 ## 개발

@@ -3178,3 +3178,36 @@ button.account-pill {
     flex-direction: column;
   }
 }
+
+/* SKEAM Cloud */
+.cloud-chip {
+  font-size: 12px;
+  white-space: nowrap;
+}
+.conflict-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 14px;
+}
+.conflict-side {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 3px;
+  font-size: 13px;
+}
+.conflict-side b {
+  color: #fff;
+  font-size: 15px;
+}
+.conflict-side button {
+  margin-top: 8px;
+}
+@media (max-width: 600px) {
+  .conflict-grid {
+    grid-template-columns: 1fr;
+  }
+}

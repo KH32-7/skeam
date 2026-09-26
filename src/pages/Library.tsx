@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { newsKey } from '../components/Chrome'
 import { Loading, Modal, toast } from '../components/ui'
 import { useData } from '../data/api'
 import { hours, koDate, shortDate } from '../format'
+import { listCloud, revertCloud, type CloudVersion } from '../state/cloud'
 import { markLaunched, markNewsSeen, NONE, unlockAchievement, useStore, type Owned } from '../state/store'
 import type { Game } from '../types'
 
@@ -212,6 +213,7 @@ function GameView({ g, o }: { g: Game; o: Owned }) {
         </div>
         <div>
           {g.achievements.length > 0 && <Achievements g={g} achieved={achieved} />}
+          {g.playUrl && <CloudCard g={g} />}
           <div className="lib-card">
             <h4>게임 정보</h4>
             <div>제작: {g.developer}</div>
@@ -221,6 +223,76 @@ function GameView({ g, o }: { g: Game; o: Owned }) {
         </div>
       </div>
       {install && <InstallModal g={g} onClose={() => setInstall(false)} />}
+    </div>
+  )
+}
+
+const cloudWhen = (iso: string) => new Date(iso).toLocaleString('ko-KR', { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+const cloudKb = (n: number) => (n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`)
+
+/** Steam's "클라우드 상태": when this game was last saved to the account, and older copies to go back to. */
+function CloudCard({ g }: { g: Game }) {
+  const loggedIn = useStore((s) => !!s.session)
+  const [versions, setVersions] = useState<CloudVersion[] | null>(null)
+  const [busy, setBusy] = useState(false)
+  useEffect(() => {
+    if (!loggedIn) return
+    let alive = true
+    listCloud()
+      .then((all) => alive && setVersions(all[g.id] ?? []))
+      .catch(() => alive && setVersions(null))
+    return () => {
+      alive = false
+    }
+  }, [g.id, loggedIn])
+
+  const revert = async (v: CloudVersion) => {
+    if (!confirm(`${cloudWhen(v.ver)} 저장으로 되돌릴까요? 지금 클라우드 저장은 기록에 남아요.`)) return
+    setBusy(true)
+    try {
+      await revertCloud(g.id, v.ver)
+      setVersions((await listCloud())[g.id] ?? [])
+      toast({ title: 'SKEAM 클라우드', body: '다음에 게임을 시작하면 이 저장을 불러와요.', glyph: '☁' })
+    } catch (e) {
+      toast({ title: '되돌리지 못했어요', body: String((e as Error).message ?? e), glyph: '!' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="lib-card">
+      <h4>SKEAM 클라우드</h4>
+      {!loggedIn ? (
+        <div style={{ color: '#8b929a', fontSize: 13 }}>로그인하면 세이브 데이터가 클라우드에 저장돼서 다른 기기에서도 이어서 할 수 있어요.</div>
+      ) : versions === null ? (
+        <div style={{ color: '#8b929a', fontSize: 13 }}>클라우드 상태를 확인하는 중...</div>
+      ) : versions.length === 0 ? (
+        <div style={{ color: '#8b929a', fontSize: 13 }}>
+          아직 클라우드에 저장된 데이터가 없어요. SKEAM SDK를 넣은 웹 게임은 플레이하면 자동으로 저장돼요.
+        </div>
+      ) : (
+        <>
+          <div style={{ fontSize: 13 }}>
+            ☁ 마지막 저장: {cloudWhen(versions[0].ver)} · {cloudKb(versions[0].size)}
+          </div>
+          {versions.length > 1 && (
+            <details style={{ marginTop: 8, fontSize: 13 }}>
+              <summary style={{ cursor: 'pointer', color: '#8b929a' }}>이전 저장 {versions.length - 1}개</summary>
+              {versions.slice(1).map((v) => (
+                <div key={v.ver} style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
+                  <span style={{ flex: 1 }}>
+                    {cloudWhen(v.ver)} · {cloudKb(v.size)}
+                  </span>
+                  <button className="btn-gray" style={{ height: 24, fontSize: 12 }} disabled={busy} onClick={() => revert(v)}>
+                    이 저장으로 되돌리기
+                  </button>
+                </div>
+              ))}
+            </details>
+          )}
+        </>
+      )}
     </div>
   )
 }

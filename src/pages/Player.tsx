@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
-import { Loading, toast } from '../components/ui'
+import { Loading, Modal, toast } from '../components/ui'
 import { useGame } from '../data/api'
 import { hours } from '../format'
+import { useCloudSync, type CloudConflict, type CloudStatus } from '../state/cloud'
 import { addPlaytime, markLaunched, unlockAchievement, useStore } from '../state/store'
 
 const TICK = 15
@@ -16,6 +17,21 @@ export default function Player() {
   const frame = useRef<HTMLIFrameElement>(null)
   const nav = useNavigate()
   const started = useRef(Date.now())
+  const origin = useMemo(() => {
+    try {
+      return new URL(g?.playUrl ?? '').origin
+    } catch {
+      return '*'
+    }
+  }, [g?.playUrl])
+  const cloud = useCloudSync(g && owned && g.playUrl ? g.id : undefined, frame, origin)
+  const [leaving, setLeaving] = useState(false)
+  // Like Steam: save to the cloud before the game closes.
+  const exit = async (to: string) => {
+    setLeaving(true)
+    await cloud.flush()
+    nav(to)
+  }
 
   // Play time: count while this tab is visible.
   useEffect(() => {
@@ -111,7 +127,8 @@ export default function Player() {
         <button className="btn-gray" style={{ height: 24, fontSize: 12 }} onClick={() => setOverlay(true)}>
           오버레이
         </button>
-        <button className="btn-gray" style={{ height: 24, fontSize: 12 }} onClick={() => nav(`/library/${g.id}`)}>
+        <CloudChip status={cloud.status} savedAt={cloud.savedAt} />
+        <button className="btn-gray" style={{ height: 24, fontSize: 12 }} onClick={() => exit(`/library/${g.id}`)}>
           나가기
         </button>
       </div>
@@ -124,6 +141,7 @@ export default function Player() {
               <div style={{ fontSize: 13 }}>
                 이번 세션 {hours(session)} · 총 {hours(owned.playtime)}
               </div>
+              <CloudChip status={cloud.status} savedAt={cloud.savedAt} />
             </div>
             <span style={{ flex: 1 }} />
             <button className="btn-gray" onClick={() => document.documentElement.requestFullscreen?.()}>
@@ -132,7 +150,7 @@ export default function Player() {
             <button className="btn-gray" onClick={() => window.open(g.playUrl, '_blank')}>
               새 탭에서 열기
             </button>
-            <button className="btn-green" onClick={() => nav(`/library/${g.id}`)}>
+            <button className="btn-green" onClick={() => exit(`/library/${g.id}`)}>
               게임 종료
             </button>
           </div>
@@ -152,7 +170,87 @@ export default function Player() {
           <div className="ob">Shift+Tab 또는 Esc로 닫기</div>
         </div>
       )}
+      {cloud.conflict && <ConflictDialog c={cloud.conflict} />}
+      {leaving && (
+        <div className="modal-back">
+          <div style={{ color: '#fff', fontSize: 16 }}>☁ SKEAM 클라우드에 저장하는 중...</div>
+        </div>
+      )}
     </div>
+  )
+}
+
+const when = (iso: string) =>
+  iso ? new Date(iso).toLocaleString('ko-KR', { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '알 수 없음'
+const kb = (n: number) => (n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`)
+
+const CHIP: Record<CloudStatus, string> = {
+  none: '',
+  off: '☁ 로그인하면 클라우드에 저장돼요',
+  checking: '☁ 클라우드 동기화 중...',
+  synced: '☁ 클라우드 최신 상태',
+  saving: '☁ 클라우드에 저장 중...',
+  conflict: '☁ 동기화 충돌',
+  error: '☁ 클라우드에 연결하지 못했어요',
+  toolarge: '☁ 용량이 커서 클라우드 저장 안 됨',
+}
+
+/** Only games with skeam-sdk.js report a status; others show nothing. */
+function CloudChip({ status, savedAt }: { status: CloudStatus; savedAt: string }) {
+  if (status === 'none') return null
+  const bad = status === 'error' || status === 'conflict' || status === 'toolarge'
+  return (
+    <span className="cloud-chip" style={{ color: bad ? '#e8a33d' : '#8fb9d8' }} title={savedAt ? `마지막 저장 ${when(savedAt)}` : undefined}>
+      {CHIP[status]}
+    </span>
+  )
+}
+
+function ConflictDialog({ c }: { c: CloudConflict }) {
+  if (c.midGame) {
+    return (
+      <Modal
+        title="클라우드 동기화 충돌"
+        footer={
+          <>
+            <button className="btn-gray" onClick={() => c.choose(true)}>
+              그대로 두기
+            </button>
+            <button className="btn-green" onClick={() => c.choose(false)}>
+              이 기기 저장으로 덮어쓰기
+            </button>
+          </>
+        }
+      >
+        플레이하는 동안 다른 기기에서 이 게임을 클라우드에 저장했어요 ({when(c.cloudAt)}).
+        <br />
+        덮어쓰면 지금 이 기기의 진행이 클라우드에 올라가요. 그대로 두면 다음에 게임을 시작할 때 어느 쪽을 쓸지 다시 물어봐요.
+      </Modal>
+    )
+  }
+  return (
+    <Modal title="클라우드 동기화 충돌" wide>
+      이 기기의 세이브 데이터와 SKEAM 클라우드의 세이브 데이터가 서로 달라요. 어느 쪽으로 이어서 할까요?
+      <div className="conflict-grid">
+        <div className="conflict-side">
+          <b>☁ 클라우드 저장</b>
+          <div>마지막 저장: {when(c.cloudAt)}</div>
+          <div>크기: {kb(c.cloudSize)}</div>
+          <button className="btn-blue" onClick={() => c.choose(true)}>
+            클라우드 저장 불러오기
+          </button>
+        </div>
+        <div className="conflict-side">
+          <b>💻 이 기기 저장</b>
+          <div>마지막 변경: {when(c.localAt)}</div>
+          <div>&nbsp;</div>
+          <button className="btn-green" onClick={() => c.choose(false)}>
+            이 기기 저장 올리기
+          </button>
+        </div>
+      </div>
+      <div style={{ fontSize: 12, marginTop: 10 }}>고르지 않은 쪽은 덮어써져요. 클라우드에는 이전 저장이 몇 개 남아 있어서 라이브러리에서 되돌릴 수 있어요.</div>
+    </Modal>
   )
 }
 
