@@ -99,6 +99,25 @@ async function unpack(packed: string) {
   return dec(JSON.parse(await new Response(stream).text()))
 }
 
+/** The five largest pieces of a snapshot, to show what made it too big. */
+function biggest(data: unknown) {
+  const d = data as { ls?: Record<string, string>; idb?: { name: string; stores: { scope?: string | null; records: [unknown, unknown][] }[] }[] }
+  const parts: [string, number][] = []
+  for (const [k, v] of Object.entries(d.ls ?? {})) parts.push([`localStorage "${k}"`, String(v).length])
+  for (const db of d.idb ?? [])
+    for (const st of db.stores) {
+      if (st.scope) parts.push([`[${db.name} 범위: ${st.scope}]`, 0])
+      for (const [k, v] of st.records) parts.push([`${db.name} ${String(k)}`, JSON.stringify(enc(v)).length])
+    }
+  const scopes = parts.filter((p) => p[1] === 0).map((p) => p[0])
+  const top = parts
+    .filter((p) => p[1] >= 1024)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([n, size]) => `${n} (${Math.round(size / 1024)}KB)`)
+  return [...top, ...scopes].join(', ')
+}
+
 // ---- desk calls -------------------------------------------------------------------
 
 export interface CloudVersion {
@@ -210,6 +229,7 @@ export function useCloudSync(gameId: string | undefined, frame: RefObject<HTMLIF
       try {
         const { packed, size } = await pack(data)
         if (packed.length > MAX) {
+          note(`세이브가 너무 커요 (압축 후 ${kb(packed.length * 0.75)}, 한도 약 1.5MB). 큰 항목: ${biggest(data)}`)
           if (alive) setStatus('toolarge')
           toast({ title: 'SKEAM 클라우드', body: '세이브 데이터가 너무 커서 클라우드에 올리지 못했어요 (최대 약 1.5MB).', glyph: '☁' })
           stopped = true

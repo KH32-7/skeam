@@ -116,9 +116,10 @@
       var m = JSON.parse(origGet.call(ls, META) || '{}') || {}
       if (!Array.isArray(m.keys)) m.keys = []
       if (!m.roots || typeof m.roots !== 'object') m.roots = {}
+      if (!Array.isArray(m.dbs)) m.dbs = []
       return m
     } catch (e) {
-      return { keys: [], roots: {} }
+      return { keys: [], roots: {}, dbs: [] }
     }
   }
   function writeMeta(m) {
@@ -155,7 +156,9 @@
     }
     return out
   }
+  var OTHERS = null
   function otherOwns(o, db, key) {
+    if (!o) return false
     return (o.roots[db] || []).some(function (r) {
       return inScope(key, r)
     })
@@ -203,10 +206,48 @@
   function ancestorOf(key, root) {
     return root.indexOf(key + '/') === 0
   }
+  // Godot keeps a game's user:// in /userfs/godot/app_userdata/<project name>.
+  // Several Godot games on one origin share /userfs, and an engine sometimes
+  // rewrites another project's unchanged files when it syncs, so a folder is
+  // learned per project and two projects' folders are never merged into one.
+  var GODOT_USER = /^(\/userfs\/godot\/app_userdata\/[^\/]+)(\/|$)/
+  function godotProject(path) {
+    var m = String(path).match(GODOT_USER)
+    return m ? m[1] : ''
+  }
+  function titleIs(folder) {
+    var name = folder.slice(folder.lastIndexOf('/') + 1).toLowerCase()
+    var t = (document.title || '').trim().toLowerCase()
+    return !!t && (t === name || t.indexOf(name) >= 0)
+  }
+  /** A remembered folder that holds several games' data (from before this rule) is forgotten and learned again. */
+  function tooWide(root) {
+    return root === '/' || root === '/userfs' || root === '/userfs/godot' || root === '/userfs/godot/app_userdata'
+  }
+  Object.keys(meta.roots).forEach(function (db) {
+    if (tooWide(meta.roots[db])) {
+      delete meta.roots[db]
+      writeMeta(meta)
+    }
+  })
+  OTHERS = others()
+
   function learnRoot(dbName, key, value) {
     if (!isPathKey(key) || !isFileEntry(value) || isCache(key)) return
-    var r = commonDir(meta.roots[dbName], dirname(key))
-    if (r === meta.roots[dbName]) return
+    if (otherOwns(OTHERS, dbName, key)) return
+    var cur = meta.roots[dbName] || ''
+    var proj = godotProject(key)
+    var r
+    if (proj) {
+      var curProj = godotProject(cur + '/')
+      if (curProj && curProj !== proj) {
+        // Another project's folder: only switch if it's clearly this page's game.
+        if (!titleIs(proj) || titleIs(curProj)) return
+        r = proj
+      } else r = curProj ? commonDir(cur, dirname(key)) : proj
+      if (!godotProject(r + '/')) r = proj
+    } else r = commonDir(cur, dirname(key))
+    if (tooWide(r) || r === cur) return
     meta.roots[dbName] = r
     writeMeta(meta)
   }
@@ -364,6 +405,10 @@
         }
         if (!isCache(db) && !restoring) {
           learnRoot(db, key, value)
+          if (!isPathKey(key) && db && meta.dbs.indexOf(db) < 0) {
+            meta.dbs.push(db)
+            writeMeta(meta)
+          }
           if (!isPathKey(key) || !isCache(key)) changed()
         }
         return orig.apply(this, arguments)
@@ -469,6 +514,7 @@
             return resolve(null)
           }
           var pathKeys = false
+          var ownDb = meta.dbs.indexOf(name) >= 0
           var tx = db.transaction(names, 'readonly')
           names.forEach(function (sn) {
             var st = tx.objectStore(sn)
@@ -484,14 +530,15 @@
               if (isPathKey(k)) {
                 pathKeys = true
                 if (root && !isCache(k) && !otherOwns(o, name, k) && (inScope(k, root) || ancestorOf(k, root))) s.records.push([k, c.value])
-              } else s.records.push([k, c.value])
+              } else if (ownDb) s.records.push([k, c.value])
               c.continue()
             }
             out.stores.push(s)
           })
           tx.oncomplete = function () {
             db.close()
-            resolve(pathKeys && !root ? null : out)
+            // Path-keyed without a known folder, or another game's plain database: not ours.
+            resolve((pathKeys && !root) || (!pathKeys && !ownDb) ? null : out)
           }
           tx.onerror = tx.onabort = function () {
             db.close()
@@ -605,7 +652,8 @@
                 else st.put(kv[1], kv[0])
               })
             }
-            if (!s.scope) return putAll()
+            // No folder, or one saved before folders were per game (too wide): only write, never delete.
+            if (!s.scope || tooWide(s.scope)) return putAll()
             // Delete this game's old files first (not its parent folders, not other games').
             st.openCursor().onsuccess = function (e) {
               var c = e.target.result
@@ -696,7 +744,7 @@
                 var wide = (o.roots[d.name] || []).some(function (r) {
                   return inScope(r, s.scope)
                 })
-                if (s.scope && !wide) meta.roots[d.name] = s.scope
+                if (s.scope && !wide && !tooWide(s.scope)) meta.roots[d.name] = s.scope
               })
               report.files += sent
               return visibleFiles(d).then(function (n) {
