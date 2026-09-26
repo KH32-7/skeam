@@ -9,20 +9,29 @@
  * works on its own GitHub Pages address.
  *
  * Cloud saves (like Steam Auto-Cloud): when the player is logged in to SKEAM,
- * the game's localStorage and IndexedDB (where Godot and Unity web builds keep
- * user:// files and PlayerPrefs) are backed up to their SKEAM account and
- * brought back on any other device. The game needs no code for this.
+ * the game's save data in localStorage and IndexedDB (where Godot and Unity web
+ * builds keep user:// files and PlayerPrefs) is backed up to their SKEAM account
+ * and brought back on any other device. The game needs no code for this.
+ *
+ * Several games often live on one origin (every game of a GitHub user shares
+ * https://<user>.github.io, and so do their Godot builds' "/userfs" database).
+ * So the SDK only ever touches this game's own data:
+ *   - localStorage: the keys this game has read or written (never SKEAM's own).
+ *   - IndexedDB with file-path keys (Godot, Unity): the folder that holds the
+ *     files this game has written, e.g. /userfs/godot/app_userdata/<project>.
+ *     Other folders in the same database are left alone.
+ *   - Other IndexedDB databases: the whole database.
+ * These are remembered in the "__skeam_cloud" localStorage key.
  *
  * How it stays safe:
- *   1. On load the SDK tells SKEAM what this device has (version it last
- *      synced, whether it changed since) and holds back indexedDB.open until
- *      SKEAM answers, so an engine never reads a save that is about to be
- *      replaced.
+ *   1. On load the SDK tells SKEAM what this device has and holds back
+ *      indexedDB.open until SKEAM answers, so an engine never reads a save
+ *      that is about to be replaced.
  *   2. SKEAM answers "ready" (keep this device's data), or sends the cloud
- *      save. Then the SDK replaces localStorage and IndexedDB and reloads once.
+ *      save. Then the SDK writes it over this game's data and reloads once.
  *   3. After that, every change is sent to SKEAM a few seconds later.
  * Nothing is uploaded before step 2, so an empty new device never overwrites
- * the cloud save.
+ * the cloud save. Nothing is deleted outside this game's own data.
  */
 (function () {
   if (window.SKEAM) return
@@ -77,8 +86,9 @@
     return
   }
 
-  // ---- cloud saves ------------------------------------------------------------------
+  // ---- state -----------------------------------------------------------------------
   var META = '__skeam_cloud'
+  var origGet = Storage.prototype.getItem
   var origSet = Storage.prototype.setItem
   var origRemove = Storage.prototype.removeItem
   var origClear = Storage.prototype.clear
@@ -90,12 +100,16 @@
   var savedSeq = 0 // seq of the last snapshot SKEAM stored
   var changedEarly = false
   var timer = 0
+  var markedAt = 0
 
   function readMeta() {
     try {
-      return JSON.parse(ls.getItem(META) || '{}') || {}
+      var m = JSON.parse(origGet.call(ls, META) || '{}') || {}
+      if (!Array.isArray(m.keys)) m.keys = []
+      if (!m.roots || typeof m.roots !== 'object') m.roots = {}
+      return m
     } catch (e) {
-      return {}
+      return { keys: [], roots: {} }
     }
   }
   function writeMeta(m) {
@@ -105,8 +119,63 @@
       /* quota */
     }
   }
+  var meta = readMeta()
+  function saveMeta(patch) {
+    for (var k in patch) meta[k] = patch[k]
+    writeMeta(meta)
+  }
 
-  // Hold every indexedDB.open until SKEAM has answered.
+  // Anything with "cache" in its name is a cache (Unity's asset cache, Godot's
+  // shader_cache), not a save: never held, backed up or replaced. Can be large.
+  function isCache(name) {
+    return /cache/i.test(String(name))
+  }
+  function ownKey(k) {
+    return typeof k === 'string' && k !== META && k.indexOf('skeam:') !== 0
+  }
+
+  // ---- which localStorage keys are this game's ----------------------------------------
+  function track(k) {
+    if (!ownKey(k) || meta.keys.indexOf(k) >= 0) return
+    meta.keys.push(k)
+    writeMeta(meta)
+  }
+
+  // ---- which IndexedDB folder is this game's ------------------------------------------
+  function dirname(p) {
+    var i = p.lastIndexOf('/')
+    return i > 0 ? p.slice(0, i) : '/'
+  }
+  function commonDir(a, b) {
+    if (!a) return b
+    var x = a.split('/')
+    var y = b.split('/')
+    var out = []
+    for (var i = 0; i < x.length && i < y.length && x[i] === y[i]; i++) out.push(x[i])
+    return out.join('/') || '/'
+  }
+  function isPathKey(k) {
+    return typeof k === 'string' && k.charAt(0) === '/'
+  }
+  /** Emscripten stores a file as {timestamp, mode, contents}; folders have no contents. */
+  function isFileEntry(v) {
+    return v && typeof v === 'object' && v.contents !== undefined
+  }
+  function inScope(key, root) {
+    return key === root || key.indexOf(root + '/') === 0
+  }
+  function ancestorOf(key, root) {
+    return root.indexOf(key + '/') === 0
+  }
+  function learnRoot(dbName, key, value) {
+    if (!isPathKey(key) || !isFileEntry(value) || isCache(key)) return
+    var r = commonDir(meta.roots[dbName], dirname(key))
+    if (r === meta.roots[dbName]) return
+    meta.roots[dbName] = r
+    writeMeta(meta)
+  }
+
+  // ---- hold indexedDB.open until SKEAM has answered -------------------------------------
   var gateOpen = false
   var queued = []
   function openGate() {
@@ -115,11 +184,6 @@
     queued.splice(0).forEach(function (f) {
       f()
     })
-  }
-  // Caches (Unity's asset cache, Emscripten preload cache) aren't saves: never
-  // held, backed up or replaced. They can be tens of MB.
-  function isCache(name) {
-    return /cache/i.test(String(name))
   }
   if (idb) {
     IDBFactory.prototype.open = function (name) {
@@ -131,35 +195,6 @@
       })
       return fake
     }
-  }
-
-  /** Resolves with `fallback` if `p` hasn't settled in `ms` (some IndexedDB calls never answer in Safari frames). */
-  function within(p, ms, fallback) {
-    return new Promise(function (resolve) {
-      var done = false
-      var t = setTimeout(function () {
-        if (!done) {
-          done = true
-          resolve(fallback)
-        }
-      }, ms)
-      p.then(
-        function (v) {
-          if (!done) {
-            done = true
-            clearTimeout(t)
-            resolve(v)
-          }
-        },
-        function () {
-          if (!done) {
-            done = true
-            clearTimeout(t)
-            resolve(fallback)
-          }
-        },
-      )
-    })
   }
 
   /** Looks like an IDBOpenDBRequest; forwards everything once the real one exists. */
@@ -199,19 +234,44 @@
     return fake
   }
 
-  // Notice changes the game makes. The "changed" mark is kept even when not
-  // syncing (logged out, or SKEAM unreachable), so the next synced session
-  // uploads that progress instead of treating the device as unchanged.
-  var markedAt = 0
+  /** Resolves with `fallback` if `p` hasn't settled in `ms` (some IndexedDB calls never answer in Safari frames). */
+  function within(p, ms, fallback) {
+    return new Promise(function (resolve) {
+      var done = false
+      var t = setTimeout(function () {
+        if (!done) {
+          done = true
+          resolve(fallback)
+        }
+      }, ms)
+      p.then(
+        function (v) {
+          if (!done) {
+            done = true
+            clearTimeout(t)
+            resolve(v)
+          }
+        },
+        function () {
+          if (!done) {
+            done = true
+            clearTimeout(t)
+            resolve(fallback)
+          }
+        },
+      )
+    })
+  }
+
+  // ---- notice changes the game makes ---------------------------------------------------
+  // The "changed" mark is kept even when not syncing (logged out, SKEAM
+  // unreachable), so the next synced session uploads that progress.
   function changed() {
     if (restoring) return
     seq++
     if (Date.now() - markedAt > 5000) {
       markedAt = Date.now()
-      var m = readMeta()
-      m.dirty = true
-      m.at = new Date().toISOString()
-      writeMeta(m)
+      saveMeta({ dirty: true, at: new Date().toISOString() })
     }
     if (state !== 'ready') {
       changedEarly = true
@@ -220,59 +280,85 @@
     clearTimeout(timer)
     timer = setTimeout(upload, 3000)
   }
-  Storage.prototype.setItem = function (k, v) {
+
+  Storage.prototype.getItem = function (k) {
+    var v = origGet.apply(this, arguments)
+    if (this === ls && v !== null && !restoring) track(k)
+    return v
+  }
+  Storage.prototype.setItem = function (k) {
     if (this === ls) {
       if (restoring) return
-      if (k !== META) changed()
+      if (ownKey(k)) {
+        track(k)
+        changed()
+      }
     }
     return origSet.apply(this, arguments)
   }
   Storage.prototype.removeItem = function (k) {
     if (this === ls) {
       if (restoring) return
-      if (k !== META) changed()
+      if (ownKey(k)) changed()
     }
     return origRemove.apply(this, arguments)
   }
   Storage.prototype.clear = function () {
     if (this === ls) {
       if (restoring) return
+      // A game clearing "its" storage on a shared origin would wipe everyone's;
+      // only its own keys go.
       changed()
-      var meta = ls.getItem(META)
-      origClear.apply(this, arguments)
-      if (meta) origSet.call(ls, META, meta)
+      meta.keys.forEach(function (k) {
+        origRemove.call(ls, k)
+      })
       return
     }
     return origClear.apply(this, arguments)
   }
-  ;(idb ? ['put', 'add', 'delete', 'clear'] : []).forEach(function (name) {
-    var orig = IDBObjectStore.prototype[name]
-    IDBObjectStore.prototype[name] = function () {
-      var db = ''
-      try {
-        db = this.transaction.db.name
-      } catch (e) {
-        /* ignore */
+  if (idb) {
+    ;['put', 'add'].forEach(function (name) {
+      var orig = IDBObjectStore.prototype[name]
+      IDBObjectStore.prototype[name] = function (value, key) {
+        var db = ''
+        try {
+          db = this.transaction.db.name
+        } catch (e) {
+          /* ignore */
+        }
+        if (!isCache(db) && !restoring) {
+          learnRoot(db, key, value)
+          if (!isPathKey(key) || !isCache(key)) changed()
+        }
+        return orig.apply(this, arguments)
       }
-      if (!isCache(db)) changed()
-      return orig.apply(this, arguments)
-    }
-  })
+    })
+    ;['delete', 'clear'].forEach(function (name) {
+      var orig = IDBObjectStore.prototype[name]
+      IDBObjectStore.prototype[name] = function () {
+        var db = ''
+        try {
+          db = this.transaction.db.name
+        } catch (e) {
+          /* ignore */
+        }
+        if (!isCache(db) && !restoring) changed()
+        return orig.apply(this, arguments)
+      }
+    })
+  }
 
-  // ---- reading and writing everything the game stored ----------------------------------
-  function lsKeys() {
-    var keys = []
-    for (var i = 0; i < ls.length; i++) {
-      var k = ls.key(i)
-      if (k !== META) keys.push(k)
-    }
-    return keys
+  // ---- reading this game's data -------------------------------------------------------
+  function ownLsKeys() {
+    return meta.keys.filter(function (k) {
+      return origGet.call(ls, k) !== null
+    })
   }
 
   // Where Godot (/userfs) and Unity/Emscripten (/idbfs) keep user files; checked
   // one by one when the browser can't list databases.
   var KNOWN_DBS = ['/userfs', '/idbfs', '/home/web_user']
-  var dbListing = 'none' // how the last listing worked, for SKEAM's diagnostics
+  var dbListing = 'none'
 
   function exists(name) {
     return within(
@@ -320,130 +406,268 @@
     })
   }
 
+  /**
+   * This game's part of one database, or null. A database whose keys are file
+   * paths but whose folder we don't know yet (the game hasn't written a file in
+   * it since the SDK arrived) is skipped: it may hold other games' files.
+   */
   function dumpDb(name) {
-    return within(new Promise(function (resolve) {
-      var req = origOpen.call(idb, name)
-      req.onupgradeneeded = function () {
-        req.transaction.abort() // it didn't exist; don't create it
-      }
-      req.onerror = function (e) {
-        if (e && e.preventDefault) e.preventDefault()
-        resolve(null)
-      }
-      req.onsuccess = function () {
-        var db = req.result
-        var out = { name: name, version: db.version, stores: [] }
-        var names = [].slice.call(db.objectStoreNames)
-        if (!names.length) {
-          db.close()
-          return resolve(out)
+    var root = meta.roots[name] || ''
+    return within(
+      new Promise(function (resolve) {
+        var req = origOpen.call(idb, name)
+        req.onupgradeneeded = function () {
+          req.transaction.abort()
         }
-        var tx = db.transaction(names, 'readonly')
-        names.forEach(function (sn) {
-          var st = tx.objectStore(sn)
-          var s = { name: sn, keyPath: st.keyPath, autoIncrement: st.autoIncrement, indexes: [], records: [] }
-          ;[].slice.call(st.indexNames).forEach(function (iname) {
-            var ix = st.index(iname)
-            s.indexes.push({ name: iname, keyPath: ix.keyPath, unique: ix.unique, multiEntry: ix.multiEntry })
-          })
-          st.openCursor().onsuccess = function (e) {
-            var c = e.target.result
-            if (c) {
-              s.records.push([c.primaryKey, c.value])
-              c.continue()
-            }
-          }
-          out.stores.push(s)
-        })
-        tx.oncomplete = function () {
-          db.close()
-          resolve(out)
-        }
-        tx.onerror = tx.onabort = function () {
-          db.close()
+        req.onerror = function (e) {
+          if (e && e.preventDefault) e.preventDefault()
           resolve(null)
         }
-      }
-    }), 8000, null)
+        req.onsuccess = function () {
+          var db = req.result
+          var out = { name: name, version: db.version, stores: [] }
+          var names = [].slice.call(db.objectStoreNames)
+          if (!names.length) {
+            db.close()
+            return resolve(null)
+          }
+          var pathKeys = false
+          var tx = db.transaction(names, 'readonly')
+          names.forEach(function (sn) {
+            var st = tx.objectStore(sn)
+            var s = { name: sn, keyPath: st.keyPath, autoIncrement: st.autoIncrement, indexes: [], scope: root || null, records: [] }
+            ;[].slice.call(st.indexNames).forEach(function (iname) {
+              var ix = st.index(iname)
+              s.indexes.push({ name: iname, keyPath: ix.keyPath, unique: ix.unique, multiEntry: ix.multiEntry })
+            })
+            st.openCursor().onsuccess = function (e) {
+              var c = e.target.result
+              if (!c) return
+              var k = c.primaryKey
+              if (isPathKey(k)) {
+                pathKeys = true
+                if (root && !isCache(k) && (inScope(k, root) || ancestorOf(k, root))) s.records.push([k, c.value])
+              } else s.records.push([k, c.value])
+              c.continue()
+            }
+            out.stores.push(s)
+          })
+          tx.oncomplete = function () {
+            db.close()
+            resolve(pathKeys && !root ? null : out)
+          }
+          tx.onerror = tx.onabort = function () {
+            db.close()
+            resolve(null)
+          }
+        }
+      }),
+      8000,
+      null,
+    )
   }
 
   function snapshot() {
     var data = {}
-    lsKeys().forEach(function (k) {
-      data[k] = ls.getItem(k)
+    ownLsKeys().forEach(function (k) {
+      data[k] = origGet.call(ls, k)
     })
     return listDbs()
       .then(function (names) {
         return Promise.all(names.map(dumpDb))
       })
       .then(function (dbs) {
-        return { v: 1, ls: data, idb: dbs.filter(Boolean) }
+        return { v: 2, ls: data, idb: dbs.filter(Boolean) }
       })
   }
 
-  function deleteDb(name) {
-    return within(new Promise(function (resolve) {
-      var r = idb.deleteDatabase(name)
-      r.onsuccess = r.onerror = r.onblocked = function () {
-        resolve()
-      }
-    }), 3000, null)
+  // ---- writing a cloud save over this game's data -------------------------------------
+  /** Opens an existing database, or resolves null if there is none (without creating it). */
+  function openDb(name) {
+    return within(
+      new Promise(function (resolve) {
+        var req = origOpen.call(idb, name)
+        req.onsuccess = function () {
+          resolve(req.result)
+        }
+        req.onerror = function (e) {
+          if (e && e.preventDefault) e.preventDefault()
+          resolve(null)
+        }
+        req.onupgradeneeded = function () {
+          req.transaction.abort()
+        }
+      }),
+      8000,
+      null,
+    )
   }
 
-  function createDb(d) {
-    return within(new Promise(function (resolve) {
-      var req = origOpen.call(idb, d.name, d.version || 1)
-      req.onupgradeneeded = function () {
-        var db = req.result
-        d.stores.forEach(function (s) {
-          var opts = { autoIncrement: !!s.autoIncrement }
-          if (s.keyPath !== null && s.keyPath !== undefined && s.keyPath !== '') opts.keyPath = s.keyPath
-          var st = db.createObjectStore(s.name, opts)
-          s.indexes.forEach(function (ix) {
-            st.createIndex(ix.name, ix.keyPath, { unique: ix.unique, multiEntry: ix.multiEntry })
+  /** Opens `d.name`, creating it or its missing stores as the snapshot describes. */
+  function prepareDb(d) {
+    function create(version, stores) {
+      return within(
+        new Promise(function (resolve) {
+          var req = origOpen.call(idb, d.name, version)
+          req.onupgradeneeded = function () {
+            var db = req.result
+            stores.forEach(function (s) {
+              var st
+              if (db.objectStoreNames.contains(s.name)) st = req.transaction.objectStore(s.name)
+              else {
+                var opts = { autoIncrement: !!s.autoIncrement }
+                if (s.keyPath !== null && s.keyPath !== undefined && s.keyPath !== '') opts.keyPath = s.keyPath
+                st = db.createObjectStore(s.name, opts)
+              }
+              s.indexes.forEach(function (ix) {
+                if (!st.indexNames.contains(ix.name)) st.createIndex(ix.name, ix.keyPath, { unique: ix.unique, multiEntry: ix.multiEntry })
+              })
+            })
+          }
+          req.onsuccess = function () {
+            resolve(req.result)
+          }
+          req.onerror = function (e) {
+            if (e && e.preventDefault) e.preventDefault()
+            resolve(null)
+          }
+        }),
+        8000,
+        null,
+      )
+    }
+    return openDb(d.name).then(function (db) {
+      if (!db) return create(d.version || 1, d.stores)
+      var missing = d.stores.filter(function (s) {
+        return !db.objectStoreNames.contains(s.name)
+      })
+      if (!missing.length) return db
+      var v = db.version + 1
+      db.close()
+      return create(v, missing)
+    })
+  }
+
+  /** Replaces this game's records: deletes what's in its folder, then writes the snapshot's. */
+  function restoreDb(d) {
+    return prepareDb(d).then(function (db) {
+      if (!db) return 0
+      return within(
+        new Promise(function (resolve) {
+          var names = d.stores.map(function (s) {
+            return s.name
           })
-          s.records.forEach(function (kv) {
-            if ('keyPath' in opts) st.put(kv[1])
-            else st.put(kv[1], kv[0])
+          var tx = db.transaction(names, 'readwrite')
+          d.stores.forEach(function (s) {
+            var st = tx.objectStore(s.name)
+            var inline = s.keyPath !== null && s.keyPath !== undefined && s.keyPath !== ''
+            var putAll = function () {
+              s.records.forEach(function (kv) {
+                if (inline) st.put(kv[1])
+                else st.put(kv[1], kv[0])
+              })
+            }
+            if (!s.scope) return putAll()
+            // Delete this game's old files first (not its parent folders, not other games').
+            st.openCursor().onsuccess = function (e) {
+              var c = e.target.result
+              if (c) {
+                if (isPathKey(c.primaryKey) && inScope(c.primaryKey, s.scope)) c.delete()
+                c.continue()
+              } else putAll()
+            }
           })
-        })
-      }
-      req.onsuccess = function () {
-        req.result.close()
-        resolve()
-      }
-      req.onerror = function (e) {
-        if (e && e.preventDefault) e.preventDefault()
-        resolve()
-      }
-    }), 8000, null)
+          tx.oncomplete = function () {
+            db.close()
+            resolve(true)
+          }
+          tx.onerror = tx.onabort = function () {
+            db.close()
+            resolve(false)
+          }
+        }),
+        15000,
+        false,
+      )
+    })
+  }
+
+  /** How many files an Emscripten engine will see (it lists them through the "timestamp" index). */
+  function visibleFiles(d) {
+    return openDb(d.name).then(function (db) {
+      if (!db) return -1
+      return within(
+        new Promise(function (resolve) {
+          var names = [].slice.call(db.objectStoreNames)
+          if (!names.length) {
+            db.close()
+            return resolve(0)
+          }
+          var st = db.transaction(names[0], 'readonly').objectStore(names[0])
+          var src = st.indexNames.contains('timestamp') ? st.index('timestamp') : st
+          var r = src.count()
+          r.onsuccess = function () {
+            db.close()
+            resolve(r.result)
+          }
+          r.onerror = function () {
+            db.close()
+            resolve(-1)
+          }
+        }),
+        5000,
+        -1,
+      )
+    })
   }
 
   function restore(snap, ver) {
     restoring = true
     state = 'restoring'
     SKEAM.cloud = 'restoring'
-    lsKeys().forEach(function (k) {
-      origRemove.call(ls, k)
-    })
+    // localStorage: only this game's keys.
+    var incoming = {}
     Object.keys(snap.ls || {}).forEach(function (k) {
-      if (k !== META) origSet.call(ls, k, snap.ls[k])
+      if (ownKey(k)) incoming[k] = snap.ls[k]
+    })
+    meta.keys.forEach(function (k) {
+      if (!(k in incoming)) origRemove.call(ls, k)
+    })
+    Object.keys(incoming).forEach(function (k) {
+      try {
+        origSet.call(ls, k, incoming[k])
+      } catch (e) {
+        /* quota */
+      }
+      if (meta.keys.indexOf(k) < 0) meta.keys.push(k)
     })
     var dbs = idb ? snap.idb || [] : []
     if (!idb && snap.idb && snap.idb.length) send({ skeam: 'cloud-log', text: '이 브라우저는 게임 창의 IndexedDB를 막아서 localStorage 부분만 불러왔어요' })
-    return listDbs()
-      .then(function (names) {
-        return Promise.all(names.map(deleteDb))
-      })
+    var report = { ls: Object.keys(incoming).length, files: 0, dbs: [] }
+    return dbs
+      .reduce(function (p, d) {
+        return p.then(function () {
+          return restoreDb(d)
+            .then(function (ok) {
+              var sent = 0
+              d.stores.forEach(function (s) {
+                sent += s.records.length
+                if (s.scope) meta.roots[d.name] = s.scope
+              })
+              report.files += sent
+              return visibleFiles(d).then(function (n) {
+                report.dbs.push({ name: d.name, ok: !!ok, written: sent, visible: n })
+              })
+            })
+        })
+      }, Promise.resolve())
       .then(function () {
-        return Promise.all(dbs.map(createDb))
-      })
-      .then(function () {
-        writeMeta({ ver: ver, dirty: false, at: new Date().toISOString() })
+        saveMeta({ ver: ver, dirty: false, at: new Date().toISOString(), restored: report })
         location.reload()
       })
   }
 
+  // ---- uploading ---------------------------------------------------------------------
   var sending = false
   function upload() {
     if (state !== 'ready' || sending) return
@@ -464,7 +688,11 @@
     state = 'ready'
     SKEAM.cloud = 'ready'
     openGate()
-    if (uploadNow || changedEarly) upload()
+    // Give the game a few seconds to read its keys first, so they're known to be its own.
+    if (uploadNow || changedEarly) {
+      clearTimeout(timer)
+      timer = setTimeout(upload, 5000)
+    }
   }
 
   // ---- talking to SKEAM ---------------------------------------------------------------
@@ -485,12 +713,11 @@
       answered = true
       if (state === 'waiting' && m.data) restore(m.data, m.ver)
     } else if (m.skeam === 'cloud-saved') {
-      var meta = readMeta()
-      meta.ver = m.ver
       savedSeq = m.seq
       markedAt = 0
-      if (m.seq === seq) meta.dirty = false
-      writeMeta(meta)
+      var patch = { ver: m.ver }
+      if (m.seq === seq) patch.dirty = false
+      saveMeta(patch)
       if (m.seq !== seq) {
         clearTimeout(timer)
         timer = setTimeout(upload, 3000)
@@ -503,17 +730,21 @@
     }
   })
 
-  var meta = readMeta()
-  var hasLs = lsKeys().length > 0
+  var restored = meta.restored
+  if (restored) saveMeta({ restored: null })
   listDbs().then(function (names) {
+    var own = ownLsKeys()
     send({
       skeam: 'cloud-hello',
-      v: 1,
+      v: 2,
       ver: meta.ver || '',
       dirty: !!meta.dirty,
       at: meta.at || '',
-      hasData: hasLs || names.length > 0,
-      env: { idb: !!idb, listing: dbListing, dbs: names, lsKeys: lsKeys().length },
+      // Any save database counts, even if it might be another game's on this
+      // origin: better to ask than to overwrite a save silently.
+      hasData: own.length > 0 || names.length > 0,
+      env: { idb: !!idb, listing: dbListing, dbs: names, roots: meta.roots, lsKeys: own.length },
+      restored: restored || null,
     })
     // An old SKEAM, or a page that isn't SKEAM, never answers: don't hold the game.
     setTimeout(function () {

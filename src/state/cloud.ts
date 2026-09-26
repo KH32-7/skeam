@@ -130,7 +130,9 @@ interface Hello {
   dirty: boolean
   at: string
   hasData: boolean
-  env?: { idb: boolean; listing: string; dbs: string[]; lsKeys: number }
+  env?: { idb: boolean; listing: string; dbs: string[]; lsKeys: number; roots?: Record<string, string> }
+  /** What the SDK wrote on the load before this one, when it just restored a cloud save. */
+  restored?: { ls: number; files: number; dbs: { name: string; ok: boolean; written: number; visible: number }[] } | null
 }
 
 const hhmm = (d = new Date()) => d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
@@ -262,6 +264,13 @@ export function useCloudSync(gameId: string | undefined, frame: RefObject<HTMLIF
         note(
           `게임 연결됨. IndexedDB ${e.idb ? `사용 가능 (세이브 DB ${e.dbs.length}개${e.listing === 'probe' ? ', 목록 대신 직접 확인' : ''})` : '막힘'}, localStorage 키 ${e.lsKeys}개` +
             (h.ver ? `, 마지막 동기화 ${shortWhen(h.ver)}${h.dirty ? ' 뒤로 바뀜' : ''}` : h.hasData ? ', 동기화한 적 없는 저장 있음' : ', 저장 없음'),
+        )
+      }
+      if (h.restored) {
+        const r = h.restored
+        note(
+          `불러오기 결과: localStorage ${r.ls}개, 파일 ${r.files}개를 씀` +
+            r.dbs.map((d) => `. ${d.name}: ${d.ok ? '성공' : '실패'}, 게임이 보는 항목 ${d.visible < 0 ? '확인 못 함' : `${d.visible}개`}`).join(''),
         )
       }
       if (!cloudP) {
