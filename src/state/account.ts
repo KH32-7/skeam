@@ -39,6 +39,8 @@ function merge(local: Synced, remote: Partial<Synced>): Synced {
     wallet: typeof remote.wallet === 'number' ? remote.wallet : local.wallet,
     owned: { ...local.owned, ...(remote.owned ?? {}) },
     wishlist: [...new Set([...(remote.wishlist ?? []), ...local.wishlist])],
+    // The newer copy's cart, so a game removed on one device stays removed.
+    cart: remote.cart ?? local.cart ?? [],
     achievements,
     seenNews: { ...local.seenNews, ...(remote.seenNews ?? {}) },
     watchRelease: [...new Set([...(remote.watchRelease ?? []), ...(local.watchRelease ?? [])])],
@@ -69,19 +71,22 @@ export async function login(name: string, password: string) {
   // Guest play on this device before logging in is kept, not thrown away.
   const hadGuestData = !getState().session && Object.keys(local.owned).length > 0
   const data = Object.keys(r.data ?? {}).length ? merge(hadGuestData ? local : syncedPart(initialLike()), r.data) : local
+  // A cart filled before logging in joins the account's cart.
+  const guestCart = !getState().session ? local.cart ?? [] : []
+  data.cart = [...new Set([...(data.cart ?? []), ...guestCart])]
   applySession(r.name, r.token, r.updated, data)
-  if (hadGuestData) schedule()
+  if (hadGuestData || guestCart.length) schedule()
 }
 
 function initialLike(): State {
-  return { ...getState(), wallet: 0, owned: {}, wishlist: [], achievements: {}, seenNews: {}, watchRelease: [], seenReviewsAt: '', txns: [] }
+  return { ...getState(), wallet: 0, owned: {}, wishlist: [], cart: [], achievements: {}, seenNews: {}, watchRelease: [], seenReviewsAt: '', txns: [] }
 }
 
 export async function logout() {
   const s = getState().session
   if (s) call('logout', { name: s.name, token: s.token }).catch(() => {})
   // Leave nothing behind on a shared computer.
-  setState((st) => ({ ...st, session: null, profile: null, wallet: 0.64, owned: {}, wishlist: [], achievements: {}, seenNews: {}, watchRelease: [], seenReviewsAt: '', txns: [] }))
+  setState((st) => ({ ...st, session: null, profile: null, wallet: 0.64, owned: {}, wishlist: [], cart: [], achievements: {}, seenNews: {}, watchRelease: [], seenReviewsAt: '', txns: [] }))
 }
 
 // ---- background sync ---------------------------------------------------------

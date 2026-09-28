@@ -23,7 +23,7 @@ export interface State {
   wallet: number
   owned: Record<string, Owned>
   wishlist: string[]
-  /** Games waiting in the cart, in the order they were added (kept on this device). */
+  /** Games waiting in the cart, in the order they were added (follows the account). */
   cart: string[]
   achievements: Record<string, Record<string, number>>
   seenNews: Record<string, string>
@@ -107,9 +107,9 @@ export function onChange(l: (before: State, after: State) => void) {
 }
 
 /** The part of a visitor's state that follows their account between devices. */
-export type Synced = Pick<State, 'profile' | 'wallet' | 'owned' | 'wishlist' | 'achievements' | 'seenNews' | 'watchRelease' | 'seenReviewsAt' | 'txns'>
+export type Synced = Pick<State, 'profile' | 'wallet' | 'owned' | 'wishlist' | 'cart' | 'achievements' | 'seenNews' | 'watchRelease' | 'seenReviewsAt' | 'txns'>
 export function syncedPart(s: State): Synced {
-  return { profile: s.profile, wallet: s.wallet, owned: s.owned, wishlist: s.wishlist, achievements: s.achievements, seenNews: s.seenNews, watchRelease: s.watchRelease ?? [], seenReviewsAt: s.seenReviewsAt ?? '', txns: s.txns.slice(0, 50) }
+  return { profile: s.profile, wallet: s.wallet, owned: s.owned, wishlist: s.wishlist, cart: s.cart ?? [], achievements: s.achievements, seenNews: s.seenNews, watchRelease: s.watchRelease ?? [], seenReviewsAt: s.seenReviewsAt ?? '', txns: s.txns.slice(0, 50) }
 }
 
 export function getState() {
