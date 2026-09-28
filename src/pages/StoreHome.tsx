@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { CapsuleImg, GameLink } from '../components/GameHover'
 import { StoreNav } from '../components/StoreNav'
 import { InLibrary, Loading, Price } from '../components/ui'
 import { useData } from '../data/api'
@@ -209,8 +210,8 @@ function Deals({ games }: { games: Game[] }) {
       <div className="deals-window">
         <div className="deals-track" style={{ transform: `translateX(-${page * 100}%)` }}>
           {games.map((g) => (
-            <Link key={g.id} className="deal" to={`/app/${g.id}`}>
-              <img src={g.images.header} alt="" />
+            <GameLink key={g.id} className="deal" g={g}>
+              <CapsuleImg g={g} />
               <InLibrary id={g.id} className="in-deal" />
               <span className={`badge ${g.discount ? '' : 'blue'}`}>{g.discount ? '주중 특가' : g.platform === 'steam' ? 'Steam' : g.platform === 'windows' ? 'Windows' : '브라우저'}</span>
               {wish.includes(g.id) && <span className="wish-ribbon">★ 찜 목록에 있음</span>}
@@ -218,7 +219,7 @@ function Deals({ games }: { games: Game[] }) {
                 <span className="title">{g.title}</span>
                 <Price game={g} />
               </div>
-            </Link>
+            </GameLink>
           ))}
         </div>
       </div>
@@ -248,8 +249,8 @@ function Picks({ picks, by }: { picks: { id: string; note: string; game: Game }[
       {/* Same card width as the deals row above when there are only a few. */}
       <div className="picks" style={{ '--cols': Math.max(3, Math.min(4, picks.length)) } as React.CSSProperties}>
         {picks.slice(0, 4).map(({ id, note, game: g }) => (
-          <Link key={id} className="pick" to={`/app/${id}`}>
-            <img src={g.images.header} alt="" />
+          <GameLink key={id} className="pick" g={g}>
+            <CapsuleImg g={g} />
             <InLibrary id={id} />
             <div className="body">
               <span className="title">{g.title}</span>
@@ -259,7 +260,7 @@ function Picks({ picks, by }: { picks: { id: string; note: string; game: Game }[
                 <Price game={g} />
               </div>
             </div>
-          </Link>
+          </GameLink>
         ))}
       </div>
     </>

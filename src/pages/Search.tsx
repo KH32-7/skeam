@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
+import { CapsuleImg, GameLink } from '../components/GameHover'
 import { StoreNav } from '../components/StoreNav'
 import { InLibrary, Loading, Price } from '../components/ui'
 import { useData } from '../data/api'
@@ -66,8 +67,8 @@ export default function Search({ wishlistOnly = false }: { wishlistOnly?: boolea
               <div style={{ fontSize: 12, color: '#8f98a0', marginBottom: 8 }}>검색어와 일치하는 결과 {list.length}개</div>
               {list.length === 0 && <div className="empty-state">{wishlistOnly ? '찜한 게임이 없습니다.' : '조건에 맞는 게임이 없습니다.'}</div>}
               {list.map((g) => (
-                <Link key={g.id} className="search-row" to={`/app/${g.id}`}>
-                  <img src={g.images.header} alt="" />
+                <GameLink key={g.id} className="search-row" g={g}>
+                  <CapsuleImg g={g} />
                   <InLibrary id={g.id} />
                   <div>
                     <div className="t">{g.title}</div>
@@ -75,9 +76,9 @@ export default function Search({ wishlistOnly = false }: { wishlistOnly?: boolea
                       {platformText(g)} · {g.developer}
                     </div>
                   </div>
-                  <div style={{ fontSize: 12, color: '#8f98a0' }}>{top ? weekLine(stats, g) : g.comingSoon ? `출시 예정 · ${koRelease(g.release)}` : koDate(g.release)}</div>
+                  <div className="when">{top ? weekLine(stats, g) : g.comingSoon ? `출시 예정 · ${koRelease(g.release)}` : koDate(g.release)}</div>
                   <Price game={g} />
-                </Link>
+                </GameLink>
               ))}
             </div>
             {!wishlistOnly && (

@@ -1,4 +1,5 @@
 import { Link, useParams } from 'react-router-dom'
+import { CapsuleImg, GameLink } from '../components/GameHover'
 import { StoreNav } from '../components/StoreNav'
 import { InLibrary, Loading, Price } from '../components/ui'
 import { useData, useProfiles } from '../data/api'
@@ -63,8 +64,8 @@ export function GameList({ games, empty }: { games: Game[]; empty: string }) {
   return (
     <>
       {games.map((g) => (
-        <Link key={g.id} className="search-row" to={`/app/${g.id}`}>
-          <img src={g.images.header} alt="" />
+        <GameLink key={g.id} className="search-row" g={g}>
+          <CapsuleImg g={g} />
           <InLibrary id={g.id} />
           <div>
             <div className="t">{g.title}</div>
@@ -72,9 +73,9 @@ export function GameList({ games, empty }: { games: Game[]; empty: string }) {
               {platformText(g)} · {g.tags.slice(0, 3).join(', ')}
             </div>
           </div>
-          <div style={{ fontSize: 12, color: '#8f98a0' }}>{koDate(g.release)}</div>
+          <div className="when">{koDate(g.release)}</div>
           <Price game={g} />
-        </Link>
+        </GameLink>
       ))}
     </>
   )

@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect } from 'react'
 import { HashRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { BottomBar, Chrome, KioskWatcher, ProfileGate, ReleaseNotifier } from './components/Chrome'
+import { GameHoverLayer } from './components/GameHover'
 import { Intro } from './components/Intro'
 import { Loading, Toasts } from './components/ui'
 import { startSync } from './state/account'
@@ -73,6 +74,7 @@ function Shell() {
       <KioskWatcher />
       <ReleaseNotifier />
       <Toasts />
+      <GameHoverLayer />
       <Intro />
     </div>
   )

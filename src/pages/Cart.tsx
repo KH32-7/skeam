@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { CapsuleImg, GameLink } from '../components/GameHover'
 import { StoreNav } from '../components/StoreNav'
 import { Loading, Price } from '../components/ui'
 import { useData } from '../data/api'
@@ -126,12 +127,12 @@ export default function Cart() {
               <h3 className="cart-picks-head">맞춤 추천</h3>
               <div className="cart-picks">
                 {picks.map((g) => (
-                  <Link key={g.id} className="cart-pick" to={`/app/${g.id}`}>
-                    <img src={g.images.header} alt="" />
+                  <GameLink key={g.id} className="cart-pick" g={g}>
+                    <CapsuleImg g={g} />
                     <div className="p">
                       <Price game={g} />
                     </div>
-                  </Link>
+                  </GameLink>
                 ))}
               </div>
             </div>
