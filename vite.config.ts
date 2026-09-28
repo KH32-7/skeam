@@ -24,7 +24,7 @@ function linkCard(): Plugin {
         meta('og:description', 'KING의 게임 상점. 동아리 프로젝트부터 Steam 출시작까지 바로 플레이해 보세요'),
         meta('og:url', url),
         // ?v= makes KakaoTalk and Discord fetch the picture again when it changes.
-        meta('og:image', url + 'og.png?v=3'),
+        meta('og:image', url + 'og.png?v=5'),
         meta('og:image:width', '1200'),
         meta('og:image:height', '630'),
         { tag: 'meta', attrs: { name: 'twitter:card', content: 'summary_large_image' }, injectTo: 'head' },

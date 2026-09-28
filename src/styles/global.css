@@ -3612,7 +3612,7 @@ button.account-pill {
 }
 .intro .i-ring {
   fill: none;
-  stroke: #c7d5e0;
+  stroke: url(#intro-ring);
   stroke-width: 2.4;
   stroke-linecap: round;
   /* real lengths, not pathLength: older iOS Safari ignores pathLength on <circle> */
@@ -3622,13 +3622,26 @@ button.account-pill {
   animation: i-draw 0.6s ease-in-out 0.25s forwards;
 }
 .intro .i-rod {
-  fill: none;
-  stroke: #fff;
-  stroke-width: 5.2;
-  stroke-linecap: round;
-  stroke-dasharray: 20;
-  stroke-dashoffset: 20;
-  animation: i-draw 0.3s ease-out 0.78s forwards;
+  /* grows out of the small joint toward the big one */
+  transform-box: view-box;
+  transform-origin: 21.5px 47.5px;
+  transform: scale(0);
+  animation: i-grow 0.3s ease-out 0.78s forwards;
+}
+@keyframes i-grow {
+  to {
+    transform: none;
+  }
+}
+.intro .i-edge,
+.intro .i-shadow {
+  opacity: 0;
+  animation: i-fade 0.4s ease-out 1s forwards;
+}
+@keyframes i-fade {
+  to {
+    opacity: 1;
+  }
 }
 @keyframes i-draw {
   to {
