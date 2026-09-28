@@ -8,6 +8,7 @@ import { Price } from './ui'
 export function StoreNav() {
   const { data } = useData()
   const wish = useStore((s) => s.wishlist.length)
+  const cart = useStore((s) => (s.cart ?? []).length)
   const nav = useNavigate()
   const [open, setOpen] = useState<string | null>(null)
   const [q, setQ] = useState('')
@@ -106,7 +107,24 @@ export function StoreNav() {
       <Link className="wish" to="/wishlist">
         ★ 찜 목록 <small>{wish}</small>
       </Link>
+      {/* Like Steam, the cart button only shows while something is in it. */}
+      {cart > 0 && (
+        <Link className="cart-btn" to="/cart">
+          <CartIcon />
+          장바구니 <small>{cart}</small>
+        </Link>
+      )}
       {open === 'cat' && data && <CategoryMenu games={data.games} onPick={() => setOpen(null)} />}
     </div>
+  )
+}
+
+export function CartIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M1 3h3.2l2.6 11.2a1.6 1.6 0 0 0 1.6 1.3h9.9a1.6 1.6 0 0 0 1.5-1.2L22 6.5H6" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="9" cy="20" r="1.8" fill="currentColor" />
+      <circle cx="18" cy="20" r="1.8" fill="currentColor" />
+    </svg>
   )
 }

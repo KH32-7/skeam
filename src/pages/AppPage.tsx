@@ -6,7 +6,7 @@ import { Loading, Price, Tags } from '../components/ui'
 import { useGame } from '../data/api'
 import { achievementTitle, isRare, useStats } from '../data/stats'
 import { koDate, koRelease, platformText } from '../format'
-import { NONE, toggleWishlist, useStore } from '../state/store'
+import { addToCart, NONE, toggleWishlist, useStore } from '../state/store'
 import type { Game, Site, Trailer } from '../types'
 import { developerPath } from './Developer'
 
@@ -57,6 +57,7 @@ function App({ g, site }: { g: Game; site: Site }) {
   const label = reviews ? reviewLabel(reviews.filter((r) => r.recommend).length, reviews.length) : null
   const owned = useStore((s) => s.owned[g.id])
   const wished = useStore((s) => s.wishlist.includes(g.id))
+  const inCart = useStore((s) => (s.cart ?? []).includes(g.id))
   const achieved = useStore((s) => s.achievements[g.id] ?? NONE)
   const nav = useNavigate()
 
@@ -171,9 +172,22 @@ function App({ g, site }: { g: Game; site: Site }) {
                     {g.price === 0 ? 'Steam에서 무료로 받기' : 'Steam에서 구매'}
                   </a>
                 ) : (
-                  <button className="btn-green" onClick={() => nav(`/checkout/${g.id}`)}>
-                    {g.price === 0 ? '라이브러리에 추가' : '구매하기'}
-                  </button>
+                  g.price === 0 ? (
+                    <button className="btn-green" onClick={() => nav(`/checkout/${g.id}`)}>
+                      라이브러리에 추가
+                    </button>
+                  ) : (
+                    // Like Steam: paid games go through the cart.
+                    <button
+                      className="btn-green"
+                      onClick={() => {
+                        addToCart(g.id)
+                        nav('/cart')
+                      }}
+                    >
+                      {inCart ? '장바구니에 있음' : '장바구니에 추가'}
+                    </button>
+                  )
                 )}
               </div>
             </div>

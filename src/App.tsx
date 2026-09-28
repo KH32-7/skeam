@@ -5,6 +5,7 @@ import { Intro } from './components/Intro'
 import { Loading, Toasts } from './components/ui'
 import { startSync } from './state/account'
 import AppPage from './pages/AppPage'
+import Cart from './pages/Cart'
 import Checkout from './pages/Checkout'
 import Library from './pages/Library'
 import Player from './pages/Player'
@@ -52,6 +53,7 @@ function Shell() {
             <Route path="/search" element={<Search />} />
             <Route path="/wishlist" element={<Search wishlistOnly />} />
             <Route path="/app/:id" element={<AppPage />} />
+            <Route path="/cart" element={<Cart />} />
             <Route path="/checkout/:id" element={<Checkout />} />
             <Route path="/wallet" element={<Wallet />} />
             <Route path="/library" element={<Library />} />

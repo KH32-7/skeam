@@ -23,6 +23,8 @@ export interface State {
   wallet: number
   owned: Record<string, Owned>
   wishlist: string[]
+  /** Games waiting in the cart, in the order they were added (kept on this device). */
+  cart: string[]
   achievements: Record<string, Record<string, number>>
   seenNews: Record<string, string>
   /** Wishlisted while still coming soon: tell the visitor when these come out. */
@@ -44,6 +46,7 @@ const initial: State = {
   wallet: 0.64,
   owned: {},
   wishlist: [],
+  cart: [],
   achievements: {},
   seenNews: {},
   watchRelease: [],
@@ -157,10 +160,23 @@ export function purchase(items: { id: string; title: string; price: number }[]) 
       wallet: round2(s.wallet - total),
       owned,
       wishlist: s.wishlist.filter((w) => !items.some((i) => i.id === w)),
+      cart: (s.cart ?? []).filter((c) => !items.some((i) => i.id === c)),
       txns: [...items.map((i) => ({ at: now, kind: 'purchase' as const, amount: -i.price, label: i.title })), ...s.txns],
     }
   })
   return true
+}
+
+export function addToCart(id: string) {
+  setState((s) => ((s.cart ?? []).includes(id) ? s : { ...s, cart: [...(s.cart ?? []), id] }))
+}
+
+export function removeFromCart(id: string) {
+  setState((s) => ({ ...s, cart: (s.cart ?? []).filter((c) => c !== id) }))
+}
+
+export function clearCart() {
+  setState((s) => ({ ...s, cart: [] }))
 }
 
 export function toggleWishlist(id: string, comingSoon = false) {
