@@ -36,6 +36,23 @@ export default function Checkout() {
       </div>
     )
 
+  // Steam games are bought on Steam (a link to this page may be old or typed by hand).
+  if (g.platform === 'steam')
+    return (
+      <div className="store">
+        <div className="store-wrap">
+          <StoreNav />
+          <div className="notice warn" style={{ marginTop: 20 }}>
+            {g.title}은(는) Steam에서 판매하는 게임이에요.{' '}
+            <a href={g.steam!.url} target="_blank" rel="noreferrer">
+              Steam 상점 페이지
+            </a>
+            에서 구매해 주세요.
+          </div>
+        </div>
+      </div>
+    )
+
   const total = g.finalPrice
   const short = total > wallet
 
@@ -51,7 +68,7 @@ export default function Checkout() {
               <p style={{ color: '#fff', fontSize: 18, margin: 0 }}>{g.title}이(가) 라이브러리에 추가되었습니다.</p>
               <p>남은 지갑 잔액: {walletWon(wallet)}</p>
               <button className="btn-play" onClick={() => nav(`/library/${g.id}`)}>
-                {g.platform === 'windows' ? '라이브러리에서 설치' : g.platform === 'steam' ? '라이브러리로 가기' : '▶ 지금 플레이'}
+                {g.platform === 'windows' ? '라이브러리에서 설치' : '▶ 지금 플레이'}
               </button>
             </div>
           </div>

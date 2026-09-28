@@ -165,13 +165,21 @@ function App({ g, site }: { g: Game; site: Site }) {
               {g.discount > 0 && <div className="plat" style={{ color: '#beee11' }}>특별 할인 중!</div>}
               <div className="buy-action">
                 <Price game={g} />
-                <button className="btn-green" onClick={() => nav(`/checkout/${g.id}`)}>
-                  {g.price === 0 ? '라이브러리에 추가' : '구매하기'}
-                </button>
+                {g.platform === 'steam' ? (
+                  // Sold on Steam, not here: the green button goes there.
+                  <a className="btn-green" href={g.steam!.url} target="_blank" rel="noreferrer">
+                    {g.price === 0 ? 'Steam에서 무료로 받기' : 'Steam에서 구매'}
+                  </a>
+                ) : (
+                  <button className="btn-green" onClick={() => nav(`/checkout/${g.id}`)}>
+                    {g.price === 0 ? '라이브러리에 추가' : '구매하기'}
+                  </button>
+                )}
               </div>
             </div>
           )}
-          {g.steam && <SteamBox g={g} />}
+          {/* A Steam-only game's buy box already goes to Steam; the note is for coming-soon ones and web builds sold here too. */}
+          {g.steam && (g.comingSoon || g.platform !== 'steam') && <SteamBox g={g} />}
 
           {g.news.length > 0 && (
             <div style={{ marginBottom: 28 }}>
@@ -307,7 +315,6 @@ function SteamBox({ g }: { g: Game }) {
         <h3>Steam에 출시된 게임이에요</h3>
         <div className="plat">
           {s.comingSoon ? `Steam 출시 예정 · ${s.releaseText || '출시일 미정'}` : s.priceText ? `Steam 가격 ${s.priceText}` : 'Steam에서 받을 수 있어요'}
-          {g.platform === 'steam' && ' · SKEAM 라이브러리에 넣으면 여기서 Steam으로 바로 실행할 수 있어요'}
         </div>
       </div>
       <a className="btn-blue" href={s.url} target="_blank" rel="noreferrer">

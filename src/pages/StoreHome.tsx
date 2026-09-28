@@ -277,8 +277,14 @@ const TABS = [
 
 /** Like Steam, each tab shows ten games; the rest are one "더 보기" away. */
 const TAB_MAX = 10
-/** "신규" means out within the last 30 days (at least the 5 newest, so the tab is never empty). */
+/** "신규" means on SKEAM within the last 30 days (at least the 5 newest, so the tab is never empty). */
 const NEW_DAYS = 30
+
+/**
+ * When a game arrived on SKEAM. For most games that is their release; a
+ * Steam game registered after it came out on Steam counts from registration.
+ */
+const listedOn = (g: Game) => (g.steam?.listed && g.steam.listed > g.release ? g.steam.listed : g.release)
 
 function TabbedList({ games }: { games: Game[] }) {
   const [tab, setTab] = useState<(typeof TABS)[number]['key']>('top')
@@ -291,8 +297,9 @@ function TabbedList({ games }: { games: Game[] }) {
     switch (tab) {
       case 'new': {
         const since = new Date(Date.now() - NEW_DAYS * 86400000).toISOString().slice(0, 10)
-        // Newest first, like the store's release list (popularity has its own tab).
-        return sorted.filter((g, i) => g.release >= since || i < 5)
+        // Newest on SKEAM first (popularity has its own tab). The list still shows each game's release date.
+        const byListed = [...sorted].sort((a, b) => listedOn(b).localeCompare(listedOn(a)))
+        return byListed.filter((g, i) => listedOn(g) >= since || i < 5)
       }
       case 'top':
         return byPopularity(sorted, stats)

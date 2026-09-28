@@ -44,6 +44,8 @@ export interface SteamInfo {
     /** "매우 긍정적", or "사용자 평가 3개" while there are few. */
     label: string
   }
+  /** When the game first appeared on SKEAM (YYYY-MM-DD); release stays Steam's date. */
+  listed?: string
   /** game.yml fields that were blank and came from Steam (the register helper leaves them blank again). */
   fromSteam: string[]
 }

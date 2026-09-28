@@ -211,6 +211,9 @@ async function steamInfo(id, appid) {
   const [players, reviews] = await Promise.all([fetchPlayers(appid), fetchReviews(appid)])
   const pop = steamPopularity(prev?.history, players, reviews)
   st.history = pop.history
+  // The day SKEAM first built this game: a Steam game that came out long ago
+  // is still new here, so the new-releases tab goes by this.
+  st.listed = prev?.listed || TODAY_KST
   // Steam down this hour: keep last time's review words instead of blanking them.
   st.popularity = reviews ? pop.summary : { ...pop.summary, positive: prev?.popularity?.positive ?? null, label: prev?.popularity?.label ?? '' }
   return st
@@ -352,7 +355,7 @@ async function buildGame(id) {
     video: y.video ? String(y.video) : '',
     trailers: st?.movies ?? [],
     steam: st
-      ? { appid: st.appid, url: st.url, priceText: st.priceText, comingSoon: st.comingSoon, releaseText: st.releaseText, platforms: st.platforms, popularity: st.popularity, fromSteam }
+      ? { appid: st.appid, url: st.url, priceText: st.priceText, comingSoon: st.comingSoon, releaseText: st.releaseText, platforms: st.platforms, popularity: st.popularity, listed: st.listed, fromSteam }
       : null,
     mobile: Boolean(y.mobile),
     hidden: Boolean(y.hidden),
