@@ -4,7 +4,7 @@ import { StoreNav } from '../components/StoreNav'
 import { Loading, Price } from '../components/ui'
 import { useData } from '../data/api'
 import { byPopularity, useStats, weekLine } from '../data/stats'
-import { koDate, koRelease, platformText } from '../format'
+import { isWeb, isWindows, koDate, koRelease, platformText } from '../format'
 import { useStore } from '../state/store'
 import type { Game } from '../types'
 
@@ -31,8 +31,9 @@ export default function Search({ wishlistOnly = false }: { wishlistOnly?: boolea
     if (q) gs = gs.filter((g) => [g.title, g.titleEn, g.developer, g.short, ...g.tags].some((f) => f.toLowerCase().includes(q.toLowerCase())))
     if (tag) gs = gs.filter((g) => g.tags.includes(tag))
     if (dev) gs = gs.filter((g) => g.developer === dev)
-    if (platform === 'web') gs = gs.filter((g) => g.platform !== 'windows')
-    if (platform === 'windows') gs = gs.filter((g) => g.platform !== 'web')
+    if (platform === 'web') gs = gs.filter(isWeb)
+    if (platform === 'windows') gs = gs.filter(isWindows)
+    if (platform === 'steam') gs = gs.filter((g) => g.steam)
     if (price === 'free') gs = gs.filter((g) => g.price === 0)
     if (sale) gs = gs.filter((g) => g.discount > 0 && !g.comingSoon)
     if (soon) gs = gs.filter((g) => g.comingSoon)
@@ -95,6 +96,7 @@ export default function Search({ wishlistOnly = false }: { wishlistOnly?: boolea
                     ['', '전체'],
                     ['web', '브라우저에서 플레이'],
                     ['windows', 'Windows 다운로드'],
+                    ['steam', 'Steam 출시작'],
                   ].map(([v, l]) => (
                     <label key={v}>
                       <input type="radio" checked={platform === v} onChange={() => set('platform', v)} /> {l}

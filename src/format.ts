@@ -36,10 +36,18 @@ export function hours(sec: number) {
   return `${(sec / 3600).toFixed(1)}시간`
 }
 
-export const platformLabel = { web: '브라우저에서 플레이', windows: 'Windows 다운로드', both: '브라우저 · Windows' } as const
+export const platformLabel = { web: '브라우저에서 플레이', windows: 'Windows 다운로드', both: '브라우저 · Windows', steam: 'Steam' } as const
 
 /** Platform line for a game; a coming-soon game with no files yet has none. */
-export function platformText(g: { platform: keyof typeof platformLabel; comingSoon?: boolean; playUrl: string; download: string; repo: string }) {
-  if (g.comingSoon && !g.playUrl && !g.download && !g.repo) return '출시 예정'
+export function platformText(g: { platform: keyof typeof platformLabel; comingSoon?: boolean; playUrl: string; download: string; repo: string; steam?: unknown }) {
+  if (g.comingSoon && !g.playUrl && !g.download && !g.repo && !g.steam) return '출시 예정'
   return platformLabel[g.platform]
 }
+
+/** Browser games, and ones with a browser build as well. */
+export const isWeb = (g: { platform: string }) => g.platform === 'web' || g.platform === 'both'
+/** Games people download from SKEAM. */
+export const isWindows = (g: { platform: string }) => g.platform === 'windows' || g.platform === 'both'
+
+/** Opens the Steam client on the game (it offers to install or buy it if needed). */
+export const steamRun = (appid: number) => `steam://run/${appid}`

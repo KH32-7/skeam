@@ -54,6 +54,7 @@ export function StoreNav() {
         <Link to="/search?sale=1">특별 할인</Link>
         <Link to="/search?platform=web">브라우저에서 플레이</Link>
         <Link to="/search?platform=windows">Windows 다운로드</Link>
+        <Link to="/search?platform=steam">Steam 출시작</Link>
       </Drop>
       <div className={`item ${open === 'cat' ? 'active' : ''}`} onMouseEnter={() => setOpen('cat')} onClick={() => setOpen(open === 'cat' ? null : 'cat')}>
         카테고리 <span className="caret">▼</span>

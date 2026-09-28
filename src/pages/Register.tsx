@@ -65,6 +65,8 @@ interface Form {
   aiNote: string
   engine: string
   video: string
+  /** Steam store page; blank fields are filled in from Steam. */
+  steam: string
   playUrl: string
   win: WinMode
   repo: string
@@ -94,6 +96,7 @@ const empty: Form = {
   aiNote: '',
   engine: '',
   video: '',
+  steam: '',
   playUrl: '',
   win: 'none',
   repo: '',
@@ -116,6 +119,10 @@ type Slot = keyof typeof SLOTS
 
 const MAX_UPLOAD = 30 * 1024 * 1024
 
+const STEAM_RE = /store\.steampowered\.com\/app\/(\d+)/
+/** "starlight-odyssey" from https://store.steampowered.com/app/1234560/Starlight_Odyssey/ */
+const steamSlug = (url: string) => slug(url.match(/\/app\/\d+\/([^/?#]+)/)?.[1] ?? '')
+
 function slug(s: string) {
   return s
     .toLowerCase()
@@ -126,22 +133,26 @@ function slug(s: string) {
 
 function fromGame(g: Game, site: Site): Form {
   const hosted = site.repo && g.download.includes(`github.com/${site.repo}/releases/download/`)
+  // What came from Steam stays blank, so it keeps following Steam after the edit.
+  const auto = new Set(g.steam?.fromSteam ?? [])
+  const own = <T,>(key: string, v: T, blank: T) => (auto.has(key) ? blank : v)
   return {
     ...empty,
     id: g.id,
-    title: g.title,
+    title: own('title', g.title, ''),
     titleEn: g.titleEn,
     developer: g.developer,
-    price: String(g.price),
-    discount: String(g.discount),
-    short: g.short,
-    tags: g.tags.join(', '),
+    price: own('price', String(g.price), ''),
+    discount: own('discount', String(g.discount), ''),
+    short: own('short', g.short, ''),
+    tags: own('tags', g.tags.join(', '), ''),
     controls: g.controls,
     aiTools: g.aiTools.join(', '),
     devPeriod: g.devPeriod,
     aiNote: g.aiNote,
     engine: g.engine,
     video: g.video,
+    steam: g.steam?.url ?? '',
     playUrl: g.playUrl,
     win: g.repo ? 'repo' : hosted ? 'upload' : g.download ? 'link' : 'none',
     repo: g.repo,
@@ -167,24 +178,32 @@ const tagList = (s: string) => [...new Set(list(s).flatMap((t) => (t.includes('#
 
 function toYaml(f: Form, extra: { download?: string; downloadSize?: string; achievements: Ach[]; updated: string }) {
   const L: string[] = []
-  L.push(`title: ${q(f.title)}`)
+  // A Steam game leaves out what Steam should fill in: blank fields, and the price and dates.
+  const steam = STEAM_RE.test(f.steam)
+  if (steam) L.push(`steam: ${q(f.steam)}`)
+  if (f.title || !steam) L.push(`title: ${q(f.title)}`)
   if (f.titleEn) L.push(`title_en: ${q(f.titleEn)}`)
   L.push(`developer: ${q(f.developer)}`)
-  if (!f.soon) L.push(`release: ${f.release}`)
-  else {
-    L.push('coming_soon: true')
-    if (f.releaseMode === 'date') L.push(`release: ${f.release}`)
-    if (f.releaseMode === 'month') L.push(`release: ${q(f.releaseMonth)}`)
+  if (steam) {
+    if (f.price.trim()) L.push(`price: ${Number(f.price) || 0}`)
+    if (f.price.trim() && Number(f.discount)) L.push(`discount: ${Number(f.discount)}`)
+  } else {
+    if (!f.soon) L.push(`release: ${f.release}`)
+    else {
+      L.push('coming_soon: true')
+      if (f.releaseMode === 'date') L.push(`release: ${f.release}`)
+      if (f.releaseMode === 'month') L.push(`release: ${q(f.releaseMonth)}`)
+    }
+    L.push(`price: ${Number(f.price) || 0}`)
+    if (Number(f.discount)) L.push(`discount: ${Number(f.discount)}`)
   }
-  L.push(`price: ${Number(f.price) || 0}`)
-  if (Number(f.discount)) L.push(`discount: ${Number(f.discount)}`)
   if (f.playUrl) L.push(`play_url: ${q(f.playUrl)}`)
   if (f.win === 'repo') L.push(`repo: ${q(f.repo)}`)
   if (extra.download) L.push(`download: ${q(extra.download)}`)
   if (extra.downloadSize) L.push(`download_size: ${q(extra.downloadSize)}`)
   if (f.win !== 'none' && f.version) L.push(`version: ${q(f.version)}`)
-  L.push(`tags: [${tagList(f.tags).map(q).join(', ')}]`)
-  L.push(`short: ${q(f.short)}`)
+  if (tagList(f.tags).length || !steam) L.push(`tags: [${tagList(f.tags).map(q).join(', ')}]`)
+  if (f.short || !steam) L.push(`short: ${q(f.short)}`)
   if (f.controls) L.push(`controls: ${q(f.controls)}`)
   L.push(`ai_tools: [${list(f.aiTools).map(q).join(', ')}]`)
   if (f.devPeriod) L.push(`dev_period: ${q(f.devPeriod)}`)
@@ -318,9 +337,10 @@ function GameForm({ games, site, existing, existingAbout }: { games: Game[]; sit
     games.forEach((g) => g.tags.forEach((t) => n.set(t, (n.get(t) ?? 0) + 1)))
     return [...n.entries()].sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0])).map(([t]) => t)
   }, [games])
+  const steam = STEAM_RE.test(f.steam)
   useEffect(() => {
-    if (!idTouched) set('id', slug(f.titleEn || ''))
-  }, [f.titleEn, idTouched])
+    if (!idTouched) set('id', slug(f.titleEn || '') || steamSlug(f.steam))
+  }, [f.titleEn, f.steam, idTouched])
 
   const taken = existing ? undefined : games.find((g) => g.id === f.id)
   const clash = !!taken && isMine(taken, me)
@@ -328,24 +348,25 @@ function GameForm({ games, site, existing, existingAbout }: { games: Game[]; sit
 
   const errors = useMemo(() => {
     const e: Record<string, string> = {}
-    if (!f.title.trim()) e.title = '제목을 적어 주세요'
+    if (f.steam && !steam) e.steam = 'https://store.steampowered.com/app/숫자/... 형태의 상점 주소'
+    if (!f.title.trim() && !steam) e.title = '제목을 적어 주세요'
     if (!/^[a-z0-9][a-z0-9-]{1,39}$/.test(f.id)) e.id = '영문 소문자, 숫자, -로 2~40자'
     else if (othersGame) e.id = `이미 ${taken!.developer}의 게임(${taken!.title})이 쓰는 이름이에요. 다른 이름을 써 주세요`
     if (!f.developer.trim()) e.developer = '제작자 이름을 적어 주세요'
-    if (!f.short.trim()) e.short = '한 줄 소개를 적어 주세요'
-    if (!(Number(f.price) >= 0)) e.price = '0 이상의 숫자'
-    if (!f.soon && !f.playUrl && f.win === 'none') e.playUrl = '브라우저 주소나 Windows 다운로드 중 하나는 있어야 합니다 (아직 없으면 "출시 예정 게임"을 체크하세요)'
+    if (!f.short.trim() && !steam) e.short = '한 줄 소개를 적어 주세요'
+    if (!(Number(f.price) >= 0) && !(steam && !f.price.trim())) e.price = '0 이상의 숫자'
+    if (!f.soon && !f.playUrl && f.win === 'none' && !steam) e.playUrl = '브라우저 주소나 Windows 다운로드 중 하나는 있어야 합니다 (아직 없으면 "출시 예정 게임"을 체크하세요)'
     if (f.playUrl && !/^https:\/\//.test(f.playUrl)) e.playUrl = 'https://로 시작하는 주소'
     if (f.win === 'repo' && !/github\.com\/[^/]+\/[^/]+/.test(f.repo)) e.repo = 'https://github.com/아이디/레포 형태'
     if (f.win === 'upload' && !exe && !existing?.download) e.exe = 'zip 파일을 골라 주세요'
     if (f.win === 'upload' && exe && exe.size > MAX_UPLOAD) e.exe = '30MB를 넘습니다. 구글 드라이브 링크나 GitHub 레포를 써 주세요'
     if (f.win === 'link' && !/^https:\/\//.test(f.link)) e.link = 'https://로 시작하는 주소'
-    if (!crops.header && !existing) e.header = '가로 배너 이미지를 올려 주세요'
+    if (!crops.header && !existing && !steam) e.header = '가로 배너 이미지를 올려 주세요'
     achs.forEach((a, i) => {
       if (!a.name.trim()) e[`ach${i}`] = '도전 과제 이름을 적어 주세요'
     })
     return e
-  }, [f, exe, crops.header, existing, achs, othersGame, taken])
+  }, [f, steam, exe, crops.header, existing, achs, othersGame, taken])
   const ok = Object.keys(errors).length === 0
   const err = (k: string) => showErrors && errors[k] && <span className="err">{errors[k]}</span>
 
@@ -369,7 +390,8 @@ function GameForm({ games, site, existing, existingAbout }: { games: Game[]; sit
     // An admin editing someone else's game keeps that game's developer.
     const developer = existing && !isMine(existing, me) ? existing.developer : me
     out.push({ path: 'game.yml', data: btoa(unescape(encodeURIComponent(toYaml(site.registerEndpoint ? { ...f, developer } : f, { download, downloadSize, achievements: achList, updated })))) })
-    out.push({ path: 'about.md', data: btoa(unescape(encodeURIComponent(f.about || f.short))) })
+    // An empty about.md lets a Steam game keep Steam's description.
+    out.push({ path: 'about.md', data: btoa(unescape(encodeURIComponent(f.about || (steam ? '' : f.short)))) })
     for (const s of Object.keys(SLOTS) as Slot[]) if (crops[s]) out.push({ path: `${s}.jpg`, data: b64(crops[s]!) })
     const newShots = shotFiles.map((_, i) => shotCrops[i]).filter(Boolean)
     newShots.forEach((d, i) => out.push({ path: `screenshots/${i + 1}.jpg`, data: b64(d) }))
@@ -410,6 +432,37 @@ function GameForm({ games, site, existing, existingAbout }: { games: Game[]; sit
         {showErrors && !ok && <div className="notice err">빠진 항목이 {Object.keys(errors).length}개 있습니다. 빨간 글씨를 확인해 주세요.</div>}
 
         <QuickFill f={f} site={site} onFill={(patch) => setF((x) => ({ ...x, ...patch }))} />
+
+        <div className="field soon-box">
+          <label style={{ color: '#fff' }}>
+            Steam에 출시한 게임인가요? <small>Steam 상점 주소를 넣으면 나머지는 Steam에서 가져와요</small>
+          </label>
+          <input
+            value={f.steam}
+            onChange={(e) => {
+              const v = e.target.value.trim()
+              // A Steam release isn't necessarily an AI game: drop the untouched default.
+              // Also the untouched ₩0 price, so the Steam price shows.
+              setF((x) => {
+                const fresh = STEAM_RE.test(v) && !STEAM_RE.test(x.steam)
+                return {
+                  ...x,
+                  steam: v,
+                  ...(fresh && x.aiTools === empty.aiTools ? { aiTools: '' } : {}),
+                  ...(fresh && x.price === empty.price && x.discount === empty.discount ? { price: '', discount: '' } : {}),
+                }
+              })
+            }}
+            placeholder="https://store.steampowered.com/app/1234560/..."
+          />
+          {err('steam')}
+          {steam && (
+            <span className="hint">
+              제목, 한 줄 소개, 소개글, 태그, 가로 배너, 스크린샷, 트레일러, 가격, 출시일은 Steam 상점 페이지 그대로 나오고, 1시간마다 Steam을 따라 바뀌어요 (할인도 따라가요). 아래 칸은
+              SKEAM에서 다르게 보이고 싶은 것만 채우세요. 비워 둔 칸은 Steam 것을 씁니다.
+            </span>
+          )}
+        </div>
 
         <Section title="1. 기본 정보">
           <div className="row2">
@@ -458,54 +511,63 @@ function GameForm({ games, site, existing, existingAbout }: { games: Game[]; sit
           <div className="row3">
             <div className="field">
               <label>가격 (원)</label>
-              <input type="number" min={0} step={100} value={f.price} onChange={(e) => set('price', e.target.value)} />
+              <input type="number" min={0} step={100} value={f.price} onChange={(e) => set('price', e.target.value)} placeholder={steam ? 'Steam 가격' : undefined} />
               {err('price')}
             </div>
             <div className="field">
               <label>할인율 (%)</label>
-              <input type="number" min={0} max={90} value={f.discount} onChange={(e) => set('discount', e.target.value)} />
+              <input type="number" min={0} max={90} value={f.discount} onChange={(e) => set('discount', e.target.value)} placeholder={steam ? 'Steam 할인' : undefined} />
             </div>
-            <div className="field">
-              <label>{f.soon ? '출시 예정일' : '출시일'}</label>
-              {f.soon && f.releaseMode === 'month' ? (
-                <input type="month" value={f.releaseMonth} onChange={(e) => set('releaseMonth', e.target.value)} />
-              ) : f.soon && f.releaseMode === 'tba' ? (
-                <input value="출시일 미정" disabled />
-              ) : (
-                <input type="date" value={f.release} onChange={(e) => set('release', e.target.value)} />
-              )}
-            </div>
-          </div>
-          <div className="field soon-box">
-            <label style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: 'pointer', color: '#fff' }}>
-              <input type="checkbox" checked={f.soon} onChange={(e) => set('soon', e.target.checked)} />
-              출시 예정 게임이에요 (아직 플레이할 수 없고, 찜만 할 수 있어요)
-            </label>
-            {f.soon && (
-              <>
-                <div style={{ display: 'flex', gap: 16, fontSize: 13, flexWrap: 'wrap' }}>
-                  {(
-                    [
-                      ['date', '날짜까지 정확히'],
-                      ['month', '월까지만 (예: 2026년 10월)'],
-                      ['tba', '아직 미정'],
-                    ] as const
-                  ).map(([v, l]) => (
-                    <label key={v} style={{ display: 'flex', gap: 6, cursor: 'pointer' }}>
-                      <input type="radio" checked={f.releaseMode === v} onChange={() => set('releaseMode', v)} />
-                      {l}
-                    </label>
-                  ))}
-                </div>
-                <span className="hint">
-                  {f.releaseMode === 'date'
-                    ? '그 날짜가 되면 자동으로 출시돼요. 게임 주소나 다운로드는 그 전에 "내 게임 수정"에서 채워 두세요.'
-                    : '출시할 때 "내 게임 수정"에서 이 체크를 끄고 게임 주소를 넣으면 돼요.'}{' '}
-                  찜한 사람들에게 출시 알림이 가요.
-                </span>
-              </>
+            {steam ? (
+              <div className="field">
+                <label>출시일</label>
+                <input value="Steam 출시일을 따라가요" disabled />
+              </div>
+            ) : (
+              <div className="field">
+                <label>{f.soon ? '출시 예정일' : '출시일'}</label>
+                {f.soon && f.releaseMode === 'month' ? (
+                  <input type="month" value={f.releaseMonth} onChange={(e) => set('releaseMonth', e.target.value)} />
+                ) : f.soon && f.releaseMode === 'tba' ? (
+                  <input value="출시일 미정" disabled />
+                ) : (
+                  <input type="date" value={f.release} onChange={(e) => set('release', e.target.value)} />
+                )}
+              </div>
             )}
           </div>
+          {!steam && (
+            <div className="field soon-box">
+              <label style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: 'pointer', color: '#fff' }}>
+                <input type="checkbox" checked={f.soon} onChange={(e) => set('soon', e.target.checked)} />
+                출시 예정 게임이에요 (아직 플레이할 수 없고, 찜만 할 수 있어요)
+              </label>
+              {f.soon && (
+                <>
+                  <div style={{ display: 'flex', gap: 16, fontSize: 13, flexWrap: 'wrap' }}>
+                    {(
+                      [
+                        ['date', '날짜까지 정확히'],
+                        ['month', '월까지만 (예: 2026년 10월)'],
+                        ['tba', '아직 미정'],
+                      ] as const
+                    ).map(([v, l]) => (
+                      <label key={v} style={{ display: 'flex', gap: 6, cursor: 'pointer' }}>
+                        <input type="radio" checked={f.releaseMode === v} onChange={() => set('releaseMode', v)} />
+                        {l}
+                      </label>
+                    ))}
+                  </div>
+                  <span className="hint">
+                    {f.releaseMode === 'date'
+                      ? '그 날짜가 되면 자동으로 출시돼요. 게임 주소나 다운로드는 그 전에 "내 게임 수정"에서 채워 두세요.'
+                      : '출시할 때 "내 게임 수정"에서 이 체크를 끄고 게임 주소를 넣으면 돼요.'}{' '}
+                    찜한 사람들에게 출시 알림이 가요.
+                  </span>
+                </>
+              )}
+            </div>
+          )}
           <div className="field">
             <label>
               태그 <small>쉼표로 구분</small>
@@ -520,6 +582,7 @@ function GameForm({ games, site, existing, existingAbout }: { games: Game[]; sit
         </Section>
 
         <Section title="2. 게임 파일">
+          {steam && <p style={{ marginTop: 0, fontSize: 13 }}>Steam 게임은 비워 둬도 돼요. 브라우저 체험판이나 따로 받을 수 있는 파일이 있을 때만 채우세요.</p>}
           <div className="field">
             <label>
               브라우저 게임 주소 <small>GitHub Pages 등. 레포에 push하면 SKEAM에도 바로 반영됩니다</small>
@@ -628,7 +691,7 @@ function GameForm({ games, site, existing, existingAbout }: { games: Game[]; sit
           {(Object.keys(SLOTS) as Slot[]).map((s) => (
             <div key={s} className="field">
               <label>
-                {SLOTS[s].label} <small>{SLOTS[s].hint}</small>
+                {steam && s === 'header' ? '가로 배너 (선택)' : SLOTS[s].label} <small>{steam && s === 'header' ? '없으면 Steam 배너를 씁니다' : SLOTS[s].hint}</small>
               </label>
               {files[s] ? (
                 <Cropper file={files[s]!} width={SLOTS[s].w} height={SLOTS[s].h} onCrop={(d) => setCrops((c) => ({ ...c, [s]: d }))} />
@@ -641,7 +704,7 @@ function GameForm({ games, site, existing, existingAbout }: { games: Game[]; sit
           ))}
           <div className="field">
             <label>
-              스크린샷 <small>1920×1080으로 맞춥니다. {existing && '새로 고르면 기존 스크린샷을 모두 바꿉니다'}</small>
+              스크린샷 <small>1920×1080으로 맞춥니다. {steam && '없으면 Steam 스크린샷을 씁니다. '}{existing && '새로 고르면 기존 스크린샷을 모두 바꿉니다'}</small>
             </label>
             {shotFiles.length === 0 && existing && (
               <div className="shots-list">
@@ -727,9 +790,13 @@ function GameForm({ games, site, existing, existingAbout }: { games: Game[]; sit
       <aside className="reg-aside">
         <div className="panel">
           <div style={{ fontSize: 12, color: '#8f98a0', marginBottom: 6 }}>상점 미리보기</div>
-          {crops.header || existing ? <img src={crops.header ?? existing!.images.header} alt="" /> : <div style={{ aspectRatio: '920/430', background: '#0e141b', display: 'grid', placeItems: 'center', color: '#556772' }}>가로 배너</div>}
-          <div style={{ color: '#fff', fontSize: 18, margin: '8px 0 4px' }}>{f.title || '제목'}</div>
-          <div style={{ fontSize: 13, marginBottom: 6 }}>{f.short || '한 줄 소개'}</div>
+          {crops.header || existing ? (
+            <img src={crops.header ?? existing!.images.header} alt="" />
+          ) : (
+            <div style={{ aspectRatio: '920/430', background: '#0e141b', display: 'grid', placeItems: 'center', color: '#556772' }}>{steam ? 'Steam 가로 배너' : '가로 배너'}</div>
+          )}
+          <div style={{ color: '#fff', fontSize: 18, margin: '8px 0 4px' }}>{f.title || (steam ? 'Steam 제목' : '제목')}</div>
+          <div style={{ fontSize: 13, marginBottom: 6 }}>{f.short || (steam ? 'Steam 한 줄 소개' : '한 줄 소개')}</div>
           <div style={{ fontSize: 12, color: '#8f98a0', marginBottom: 6 }}>
             {koDate(f.release)} · {f.developer || '제작자'}
           </div>
@@ -884,6 +951,7 @@ function toFill(o: Record<string, unknown>): Fill {
   put('engine', str(o.engine))
   put('video', str(o.video))
   put('playUrl', str(o.play_url ?? o.playUrl))
+  put('steam', str(o.steam))
   if (typeof o.price === 'number' || /^\d+$/.test(str(o.price))) put('price', str(o.price))
   const repo = str(o.repo)
   if (repo) Object.assign(fill, { repo, win: 'repo' as WinMode })
@@ -1272,6 +1340,16 @@ function Guide() {
         <li>"새 게임 등록" 탭에서 정보와 그림을 채우고 등록을 누릅니다.</li>
         <li>2~3분 뒤 상점에 나옵니다. 그다음부터 게임 업데이트는 자기 레포에서 하면 SKEAM에 자동으로 반영됩니다.</li>
       </ol>
+      <h3>Steam에 출시한 게임</h3>
+      <p>
+        "새 게임 등록"의 맨 위 칸에 Steam 상점 주소(<code>https://store.steampowered.com/app/숫자/...</code>)만 넣고 등록하면 됩니다. 제목, 소개글, 태그, 가로 배너, 스크린샷, 트레일러, 가격,
+        출시일을 Steam 상점 페이지에서 가져오고, 1시간마다 다시 읽어서 할인이나 출시일이 바뀌면 SKEAM도 따라 바뀝니다.
+      </p>
+      <ul>
+        <li>SKEAM에서만 다르게 보이고 싶은 칸(한국어 소개, 가격 등)만 채우세요. 채운 칸이 Steam 것보다 먼저입니다.</li>
+        <li>상점 페이지가 공개돼 있어야 읽을 수 있어요. 출시 전이면 "출시 예정"으로 올라가고, Steam에 출시되면 SKEAM도 같이 출시됩니다.</li>
+        <li>라이브러리의 "Steam에서 실행"은 Steam 앱을 열어 줍니다. 게임이 없으면 Steam이 설치나 구매 화면을 띄워요.</li>
+      </ul>
       <h3>이미지 규격</h3>
       <ul>
         <li>가로 배너 920×430 (필수), 세로 포스터 600×900, 라이브러리 배경 1920×620, 스크린샷 1920×1080</li>

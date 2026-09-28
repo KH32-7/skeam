@@ -4,7 +4,7 @@ import { newsKey } from '../components/Chrome'
 import { Loading, Modal, toast } from '../components/ui'
 import { useData } from '../data/api'
 import { achievementRate, achievementTitle, isRare, pct, useStats } from '../data/stats'
-import { hours, koDate, shortDate } from '../format'
+import { hours, koDate, shortDate, steamRun } from '../format'
 import { listCloud, revertCloud, useRememberedCloud, type CloudStatus, type CloudVersion } from '../state/cloud'
 import { markLaunched, markNewsSeen, NONE, unlockAchievement, useStore, type Owned } from '../state/store'
 import type { Game } from '../types'
@@ -126,7 +126,14 @@ function GameView({ g, o }: { g: Game; o: Owned }) {
         {g.images.logo ? <img className="logo" src={g.images.logo} alt={g.title} /> : <div className="logo-text">{g.title}</div>}
       </div>
       <div className="lib-bar">
-        {g.platform === 'windows' ? (
+        {g.platform === 'steam' ? (
+          <a className="btn-play" href={steamRun(g.steam!.appid)} onClick={() => markLaunched(g.id)} title="Steam이 설치돼 있어야 해요">
+            <svg width="18" height="20" viewBox="0 0 18 20" aria-hidden="true">
+              <path d="M2 1.5v17L17 10z" fill="currentColor" />
+            </svg>
+            Steam에서 실행
+          </a>
+        ) : g.platform === 'windows' ? (
           <button className={`btn-play ${upd ? 'update' : o.downloadedVersion ? '' : 'install'}`} onClick={() => setInstall(true)}>
             {upd ? '⟳ 업데이트' : o.downloadedVersion ? '⬇ 다시 받기' : '⬇ 설치'}
           </button>
@@ -152,7 +159,12 @@ function GameView({ g, o }: { g: Game; o: Owned }) {
             )}
           </div>
         )}
-        {g.platform === 'windows' ? (
+        {g.platform === 'steam' ? (
+          <>
+            <LibStat label="마지막 실행" value={o.lastPlayed ? shortDate(o.lastPlayed) : '아직 안 함'} />
+            <LibStat icon="tag" label="Steam 가격" value={g.steam!.comingSoon ? '출시 예정' : g.steam!.priceText || '-'} />
+          </>
+        ) : g.platform === 'windows' ? (
           <>
             <LibStat icon="disk" label="필요한 공간" value={g.downloadSize || '-'} />
             <LibStat icon="tag" label="최신 버전" value={g.version ? `v${g.version}` : '-'} />
@@ -175,6 +187,11 @@ function GameView({ g, o }: { g: Game; o: Owned }) {
       </div>
       <div className="lib-links">
         <Link to={`/app/${g.id}`}>상점 페이지</Link>
+        {g.steam && (
+          <a href={g.steam.url} target="_blank" rel="noreferrer">
+            Steam 상점 페이지
+          </a>
+        )}
         <a href="#news" onClick={(e) => (e.preventDefault(), document.getElementById('news')?.scrollIntoView({ behavior: 'smooth' }))}>
           패치 노트
         </a>

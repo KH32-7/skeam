@@ -14,6 +14,27 @@ export interface NewsItem {
   image: string
 }
 
+/** A Steam trailer: an HLS stream (newer store pages) or an mp4 (older ones). */
+export interface Trailer {
+  name: string
+  thumb: string
+  mp4: string
+  hls: string
+}
+
+/** A game the club released on Steam; its store page is filled in from Steam. */
+export interface SteamInfo {
+  appid: number
+  url: string
+  /** Steam's current price, e.g. "₩ 8,800" or "무료"; '' before release. */
+  priceText: string
+  comingSoon: boolean
+  releaseText: string
+  platforms: { windows: boolean; mac: boolean; linux: boolean }
+  /** game.yml fields that were blank and came from Steam (the register helper leaves them blank again). */
+  fromSteam: string[]
+}
+
 export interface Game {
   id: string
   title: string
@@ -32,7 +53,8 @@ export interface Game {
   download: string
   downloadSize: string
   version: string
-  platform: 'web' | 'windows' | 'both'
+  /** 'steam': only on Steam (no browser build or download on SKEAM). */
+  platform: 'web' | 'windows' | 'both' | 'steam'
   tags: string[]
   short: string
   controls: string
@@ -41,6 +63,8 @@ export interface Game {
   devPeriod: string
   engine: string
   video: string
+  trailers: Trailer[]
+  steam: SteamInfo | null
   mobile: boolean
   updated: string
   aboutHtml: string

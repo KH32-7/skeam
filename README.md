@@ -8,6 +8,7 @@ KING 동아리가 AI로 만든 게임을 모아 두는 스팀 패러디 상점�
 
 - 브라우저 게임: GitHub Pages 주소만 적으면 됩니다. 레포에 push하면 SKEAM에도 바로 반영됩니다.
 - Windows 게임: 공개 GitHub 레포 주소를 적으면 최신 Release를 1시간마다 따라갑니다. 레포가 없으면 zip(30MB 이하)을 직접 올리거나 다운로드 링크를 적습니다.
+- Steam에 출시한 게임: Steam 상점 주소만 적으면 제목, 소개글, 이미지, 스크린샷, 트레일러, 가격, 출시일을 Steam에서 가져오고 1시간마다 따라갑니다.
 - 자세한 규격과 도전 과제 연동은 사이트의 **등록 가이드** 탭에 있습니다.
 
 git에 익숙하면 `games/<게임id>/` 폴더를 추가하는 PR을 보내도 됩니다. 머지되면 자동 배포됩니다.
@@ -20,6 +21,7 @@ git에 익숙하면 `games/<게임id>/` 폴더를 추가하는 PR을 보내도 �
 | `club/` | 커뮤니티 탭의 동아리 소개 (`club.yml`, `about.md`, `photos/`) |
 | `site.yml` | 홈 캐러셀에 걸 게임, 운영자 추천(`picks`), 운영자 |
 | `scripts/build-data.mjs` | 위 파일들을 검사해 `public/data/*.json`으로 만듦. 문제 있는 게임은 빼고 이유를 남김. 카톡·디스코드 링크 카드용 게임별 페이지(`app/<id>/`)도 만듦 |
+| `scripts/steam.mjs` | `steam:`이 있는 게임의 상점 정보를 Steam 상점 API에서 읽어 옴. Steam이 안 되면 지난 배포의 `data/steam.json`을 씀 |
 | `apps-script/` | 등록 창구와 리뷰를 맡는 Google Apps Script. 설정법은 `apps-script/README.md` |
 | `public/skeam-sdk.js` | HTML 게임용 SDK: 도전 과제, 오버레이, 클라우드 저장(`<head>`에 넣으면 localStorage·IndexedDB 세이브가 계정을 따라감) |
 | `.github/workflows/deploy.yml` | push, 매시간, 등록 창구 요청 때 빌드해서 Pages에 배포 |
@@ -60,6 +62,8 @@ dev_period: "2주"
 ai_note: "제작 후기 한 줄"
 engine: "Godot 4.7"
 video: https://youtu.be/...
+steam: https://store.steampowered.com/app/1234560/   # Steam 출시작: 비워 둔 칸(제목, 소개, 태그, 이미지, 스크린샷,
+                                  # 가격·할인, 출시일, about.md)은 Steam 상점 페이지에서 채움. 트레일러도 가져옴
 hidden: true                      # 상점에서 숨기기
 achievements:
   - id: first_win

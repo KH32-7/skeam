@@ -7,7 +7,7 @@ import { useGame } from '../data/api'
 import { achievementTitle, isRare, useStats } from '../data/stats'
 import { koDate, koRelease, platformText } from '../format'
 import { NONE, toggleWishlist, useStore } from '../state/store'
-import type { Game, Site } from '../types'
+import type { Game, Site, Trailer } from '../types'
 import { developerPath } from './Developer'
 
 function youtubeId(url: string) {
@@ -115,6 +115,11 @@ function App({ g, site }: { g: Game; site: Site }) {
         <button className="btn-blue" onClick={() => toggleWishlist(g.id, g.comingSoon)}>
           {wished ? '✓ 찜 목록에 있음' : '찜 목록에 추가'}
         </button>
+        {g.steam && (
+          <a className="btn-gray" href={g.steam.url} target="_blank" rel="noreferrer">
+            Steam 상점 페이지
+          </a>
+        )}
         {g.repo && (
           <a className="btn-gray" href={g.repo} target="_blank" rel="noreferrer">
             GitHub 레포
@@ -142,7 +147,7 @@ function App({ g, site }: { g: Game; site: Site }) {
                 {g.title}이(가) 라이브러리에 있습니다
               </span>
               <button className="btn-play" style={{ height: 36, fontSize: 16, padding: '0 20px' }} onClick={() => nav(`/library/${g.id}`)}>
-                {g.platform === 'windows' ? '라이브러리에서 설치' : '▶ 플레이'}
+                {g.platform === 'windows' ? '라이브러리에서 설치' : g.platform === 'steam' ? '라이브러리로 가기' : '▶ 플레이'}
               </button>
             </div>
           ) : (
@@ -158,6 +163,7 @@ function App({ g, site }: { g: Game; site: Site }) {
               </div>
             </div>
           )}
+          {g.steam && <SteamBox g={g} />}
 
           {g.news.length > 0 && (
             <div style={{ marginBottom: 28 }}>
@@ -184,35 +190,46 @@ function App({ g, site }: { g: Game; site: Site }) {
             </>
           )}
 
-          <h3 className="block-head" style={{ marginTop: 28 }}>
-            AI 제작 정보
-          </h3>
-          <div className="ai-box">
-            <div>
-              <div className="k">사용한 AI 도구</div>
-              <div className="v">{g.aiTools.length ? g.aiTools.join(', ') : '적지 않음'}</div>
-            </div>
-            <div>
-              <div className="k">제작 기간</div>
-              <div className="v">{g.devPeriod || '적지 않음'}</div>
-            </div>
-            {g.engine && (
-              <div>
-                <div className="k">엔진·도구</div>
-                <div className="v">{g.engine}</div>
+          {/* A Steam release may not be an AI game at all; show the box only when there is something to say. */}
+          {(!g.steam || g.aiTools.length > 0 || g.devPeriod || g.aiNote) && (
+            <>
+              <h3 className="block-head" style={{ marginTop: 28 }}>
+                AI 제작 정보
+              </h3>
+              <div className="ai-box">
+                <div>
+                  <div className="k">사용한 AI 도구</div>
+                  <div className="v">{g.aiTools.length ? g.aiTools.join(', ') : '적지 않음'}</div>
+                </div>
+                <div>
+                  <div className="k">제작 기간</div>
+                  <div className="v">{g.devPeriod || '적지 않음'}</div>
+                </div>
+                {g.engine && (
+                  <div>
+                    <div className="k">엔진·도구</div>
+                    <div className="v">{g.engine}</div>
+                  </div>
+                )}
+                <div>
+                  <div className="k">실행 환경</div>
+                  <div className="v">
+                    {g.platform === 'windows'
+                      ? `Windows 64비트${g.downloadSize ? ` · ${g.downloadSize}` : ''}`
+                      : g.platform === 'steam'
+                        ? `Steam${steamOs(g) ? ` (${steamOs(g)})` : ''}`
+                        : '최신 크롬·엣지 브라우저'}
+                  </div>
+                </div>
+                {g.aiNote && (
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <div className="k">제작 후기</div>
+                    <div className="v">“{g.aiNote}”</div>
+                  </div>
+                )}
               </div>
-            )}
-            <div>
-              <div className="k">실행 환경</div>
-              <div className="v">{g.platform === 'windows' ? `Windows 64비트${g.downloadSize ? ` · ${g.downloadSize}` : ''}` : '최신 크롬·엣지 브라우저'}</div>
-            </div>
-            {g.aiNote && (
-              <div style={{ gridColumn: '1 / -1' }}>
-                <div className="k">제작 후기</div>
-                <div className="v">“{g.aiNote}”</div>
-              </div>
-            )}
-          </div>
+            </>
+          )}
 
           <div id="reviews">
             <Reviews endpoint={endpoint} gameId={g.id} title={g.title} />
@@ -229,10 +246,10 @@ function App({ g, site }: { g: Game; site: Site }) {
           )}
           <div className="side-block">
             <div className="plat-badge">
-              <span className="ico">{g.platform === 'windows' ? '⊞' : '◎'}</span>
+              <span className="ico">{g.platform === 'windows' || g.platform === 'steam' ? '⊞' : '◎'}</span>
               <span>
-                <b>{platformText(g)}</b>
-                {g.platform === 'windows' ? '구매 후 라이브러리에서 설치' : '설치 없이 바로 실행'}
+                <b>{g.platform === 'steam' && steamOs(g) ? `Steam · ${steamOs(g)}` : platformText(g)}</b>
+                {g.platform === 'windows' ? '구매 후 라이브러리에서 설치' : g.platform === 'steam' ? 'Steam에서 설치하고 실행' : '설치 없이 바로 실행'}
               </span>
             </div>
           </div>
@@ -262,12 +279,94 @@ function App({ g, site }: { g: Game; site: Site }) {
   )
 }
 
+/** "Windows, macOS" from the platforms Steam lists. */
+function steamOs(g: Game) {
+  const p = g.steam?.platforms
+  return p ? [p.windows && 'Windows', p.mac && 'macOS', p.linux && 'Linux'].filter(Boolean).join(', ') : ''
+}
+
+/** The real thing is on Steam: its price there and a way to get it. */
+function SteamBox({ g }: { g: Game }) {
+  const s = g.steam!
+  return (
+    <div className="steam-box">
+      <div>
+        <h3>Steam에 출시된 게임이에요</h3>
+        <div className="plat">
+          {s.comingSoon ? `Steam 출시 예정 · ${s.releaseText || '출시일 미정'}` : s.priceText ? `Steam 가격 ${s.priceText}` : 'Steam에서 받을 수 있어요'}
+          {g.platform === 'steam' && ' · SKEAM 라이브러리에 넣으면 여기서 Steam으로 바로 실행할 수 있어요'}
+        </div>
+      </div>
+      <a className="btn-blue" href={s.url} target="_blank" rel="noreferrer">
+        {s.comingSoon ? 'Steam에서 찜하기' : 'Steam에서 보기'}
+      </a>
+    </div>
+  )
+}
+
+/**
+ * A Steam trailer. New store pages only have HLS streams: Safari plays them
+ * itself, other browsers get hls.js (loaded only when a trailer is opened).
+ * If the stream won't play, the poster links to the trailer on Steam.
+ */
+function SteamTrailer({ t, steamUrl }: { t: Trailer; steamUrl: string }) {
+  const ref = useRef<HTMLVideoElement>(null)
+  const [failed, setFailed] = useState(false)
+  useEffect(() => {
+    const v = ref.current
+    if (!v) return
+    if (t.mp4 || !t.hls || v.canPlayType('application/vnd.apple.mpegurl')) return
+    let hls: { destroy(): void } | null = null
+    let gone = false
+    import('hls.js').then(({ default: Hls }) => {
+      if (gone) return
+      if (!Hls.isSupported()) return setFailed(true)
+      const h = new Hls({ capLevelToPlayerSize: true })
+      h.on(Hls.Events.ERROR, (_e, d) => d.fatal && setFailed(true))
+      h.loadSource(t.hls)
+      h.attachMedia(v)
+      hls = h
+    }, () => setFailed(true))
+    return () => {
+      gone = true
+      hls?.destroy()
+    }
+  }, [t])
+  if (failed)
+    return (
+      <a className="trailer-fallback" href={steamUrl} target="_blank" rel="noreferrer">
+        <img src={t.thumb} alt="" />
+        <span>▶ Steam에서 영상 보기</span>
+      </a>
+    )
+  const nativeHls = !t.mp4 && t.hls && typeof document !== 'undefined' && document.createElement('video').canPlayType('application/vnd.apple.mpegurl')
+  return (
+    <video
+      ref={ref}
+      src={t.mp4 || (nativeHls ? t.hls : undefined)}
+      poster={t.thumb}
+      controls
+      autoPlay
+      muted
+      playsInline
+      onError={() => setFailed(true)}
+      title={t.name}
+    />
+  )
+}
+
 const AUTO_MS = 5000
 
 /** Screenshots/video like Steam: arrows (on screen or the keyboard), thumbnails, and a slow auto-advance. */
 function Media({ g }: { g: Game }) {
   const vid = g.video ? youtubeId(g.video) : null
-  const items = [...(vid ? [{ kind: 'video' as const, src: vid }] : []), ...g.images.screenshots.map((s) => ({ kind: 'img' as const, src: s }))]
+  type Item = { kind: 'video'; src: string } | { kind: 'trailer'; src: string; t: Trailer } | { kind: 'img'; src: string }
+  const items: Item[] = [
+    ...(vid ? [{ kind: 'video' as const, src: vid }] : []),
+    // Steam's first trailers, like its store page (they are long; two is plenty).
+    ...(g.trailers ?? []).slice(0, vid ? 1 : 2).map((t) => ({ kind: 'trailer' as const, src: t.hls || t.mp4, t })),
+    ...g.images.screenshots.map((s) => ({ kind: 'img' as const, src: s })),
+  ]
   if (!items.length) items.push({ kind: 'img', src: g.images.header })
   const n = items.length
   const [i, setI] = useState(0)
@@ -283,7 +382,7 @@ function Media({ g }: { g: Game }) {
 
   // Auto-advance; never away from a video someone may be watching, or while the pointer is on it.
   useEffect(() => {
-    if (n < 2 || hover || cur.kind === 'video') return
+    if (n < 2 || hover || cur.kind !== 'img') return
     const t = window.setTimeout(() => setI((v) => (v + 1) % n), AUTO_MS)
     return () => clearTimeout(t)
   }, [idx, n, hover, cur.kind, tick])
@@ -314,6 +413,8 @@ function Media({ g }: { g: Game }) {
       <div className="media-main" onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
         {cur.kind === 'video' ? (
           <iframe src={`https://www.youtube-nocookie.com/embed/${cur.src}?rel=0`} title="영상" allow="autoplay; encrypted-media; fullscreen" allowFullScreen />
+        ) : cur.kind === 'trailer' ? (
+          <SteamTrailer key={cur.src} t={cur.t} steamUrl={g.steam?.url ?? ''} />
         ) : (
           <img src={cur.src} alt="" />
         )}
@@ -339,8 +440,8 @@ function Media({ g }: { g: Game }) {
                 setTick((t) => t + 1)
               }}
             >
-              <img src={m.kind === 'video' ? `https://i.ytimg.com/vi/${m.src}/mqdefault.jpg` : m.src} alt="" />
-              {m.kind === 'video' && <span className="play-ico">▶</span>}
+              <img src={m.kind === 'video' ? `https://i.ytimg.com/vi/${m.src}/mqdefault.jpg` : m.kind === 'trailer' ? m.t.thumb : m.src} alt="" />
+              {m.kind !== 'img' && <span className="play-ico">▶</span>}
             </button>
           ))}
         </div>

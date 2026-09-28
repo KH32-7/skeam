@@ -12,6 +12,9 @@
 // When GITHUB_TOKEN is set (or the API is reachable anonymously), games with
 // a `repo:` field get their latest GitHub Release merged in: download link,
 // size, version, and the release notes as a patch note.
+//
+// Games with a `steam:` field get their store page from Steam (see steam.mjs).
+// If Steam can't be reached, the copy the live site built last time is used.
 
 import crypto from 'node:crypto'
 import fs from 'node:fs'
@@ -19,6 +22,7 @@ import path from 'node:path'
 import * as yaml from 'js-yaml'
 import { marked } from 'marked'
 import sanitizeHtml from 'sanitize-html'
+import { fetchSteam, normalizeSteam, steamAppId } from './steam.mjs'
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1')), '..')
 const STRICT = process.argv.includes('--strict')
@@ -33,6 +37,21 @@ function md(text) {
     allowedTags: [...sanitizeHtml.defaults.allowedTags, 'img', 'h1', 'h2', 'del', 'details', 'summary'],
     allowedAttributes: { a: ['href', 'title'], img: ['src', 'alt', 'title', 'width', 'height'], '*': ['align'] },
     allowedSchemes: ['http', 'https', 'mailto'],
+    transformTags: { a: sanitizeHtml.simpleTransform('a', { target: '_blank', rel: 'noreferrer' }) },
+  })
+}
+
+// Steam's own description: the same, plus the looping clips many store pages use.
+function steamHtml(html) {
+  return sanitizeHtml(String(html ?? ''), {
+    allowedTags: [...sanitizeHtml.defaults.allowedTags, 'img', 'h1', 'h2', 'video', 'source'],
+    allowedAttributes: {
+      a: ['href', 'title'],
+      img: ['src', 'alt', 'title', 'width', 'height'],
+      video: ['autoplay', 'muted', 'loop', 'playsinline', 'poster', 'width', 'height'],
+      source: ['src', 'type'],
+    },
+    allowedSchemes: ['https'],
     transformTags: { a: sanitizeHtml.simpleTransform('a', { target: '_blank', rel: 'noreferrer' }) },
   })
 }
@@ -156,6 +175,31 @@ async function latestRelease(repo) {
   }
 }
 
+// Steam answers for this build, written to data/steam.json. When Steam is
+// down, the file the live site built last time stands in, so an hourly build
+// never drops a Steam game or its pictures.
+const steamData = {}
+let lastSteam
+function previousSteam(appid) {
+  lastSteam ??= fetch(`${SITE_URL}data/steam.json`, { headers: { 'User-Agent': 'skeam-build' }, signal: AbortSignal.timeout(15000) })
+    .then((r) => (r.ok ? r.json() : {}))
+    .catch(() => ({}))
+  return lastSteam.then((all) => all?.[appid] ?? null)
+}
+
+async function steamInfo(id, appid) {
+  const r = await fetchSteam(appid)
+  if (r.data) return normalizeSteam(appid, r.data, steamHtml)
+  if (r.missing) {
+    problem(id, `Steam에서 앱 ${appid}을(를) 찾지 못했습니다 (주소를 확인하거나, 상점 페이지가 공개됐는지 확인해 주세요)`)
+    return null
+  }
+  const prev = await previousSteam(appid)
+  if (prev) console.warn(`  [${id}] Steam 확인 실패 (${r.error}), 지난번 정보로 진행`)
+  else problem(id, `Steam 정보를 불러오지 못했습니다 (${r.error})`)
+  return prev
+}
+
 /**
  * Whether a web game's page loads skeam-sdk.js (needed for cloud saves and
  * achievements). null when the page couldn't be read, so the site doesn't
@@ -191,38 +235,58 @@ async function buildGame(id) {
     return null
   }
   if (!/^[a-z0-9][a-z0-9-]*$/.test(id)) problem(id, '폴더 이름(게임 id)은 영문 소문자, 숫자, -만 쓸 수 있습니다')
-  if (!y.title) problem(id, 'title(제목)이 비어 있습니다')
-  if (!y.developer) problem(id, 'developer(제작자)가 비어 있습니다')
-  const release = releaseOf(y.release)
+
+  // A Steam game fills in whatever game.yml and the folder leave out.
+  const appid = steamAppId(y.steam)
+  if (y.steam && !appid) problem(id, `steam 주소를 이해하지 못했습니다: ${y.steam} (예: https://store.steampowered.com/app/1234560/)`)
+  const st = appid ? await steamInfo(id, appid) : null
+  if (st) steamData[appid] = st
+  const fromSteam = []
+  const orSteam = (key, own, steam) => {
+    const blank = (v) => v == null || v === '' || (Array.isArray(v) && !v.length)
+    if (!blank(own)) return own
+    if (st && !blank(steam)) fromSteam.push(key)
+    return st ? steam : own
+  }
+  const title = orSteam('title', y.title, st?.name)
+  const developer = orSteam('developer', y.developer, st?.developers[0])
+
+  if (!title) problem(id, 'title(제목)이 비어 있습니다')
+  if (!developer) problem(id, 'developer(제작자)가 비어 있습니다')
+  // Steam decides whether a Steam game is out yet, unless game.yml says so itself.
+  const steamDates = st && y.coming_soon == null && y.release == null
+  const release = steamDates ? st.release : releaseOf(y.release)
+  if (steamDates) fromSteam.push('release')
   // An exact date that has arrived releases the game on its own (the hourly build picks it up).
   // (Only if there is something to play by then; otherwise it stays coming soon.)
-  const hasFiles = Boolean(y.play_url || y.repo || y.download)
-  const comingSoon = Boolean(y.coming_soon) && !(hasFiles && /^\d{4}-\d{2}-\d{2}$/.test(release) && release <= TODAY_KST)
-  if (!comingSoon && !y.play_url && !y.repo && !y.download) problem(id, 'play_url, repo, download 중 하나는 있어야 합니다 (출시 예정 게임이면 coming_soon: true)')
-  const price = Number(y.price ?? 0)
+  const hasFiles = Boolean(y.play_url || y.repo || y.download || appid)
+  const comingSoon = steamDates ? st.comingSoon : Boolean(y.coming_soon) && !(hasFiles && /^\d{4}-\d{2}-\d{2}$/.test(release) && release <= TODAY_KST)
+  if (!comingSoon && !hasFiles) problem(id, 'play_url, repo, download, steam 중 하나는 있어야 합니다 (출시 예정 게임이면 coming_soon: true)')
+  const price = Number(orSteam('price', y.price, st?.price) ?? 0)
   if (!Number.isFinite(price) || price < 0) problem(id, 'price는 0 이상의 숫자여야 합니다')
-  const discount = Math.min(100, Math.max(0, Number(y.discount ?? 0) || 0))
+  const discount = Math.min(100, Math.max(0, Number(orSteam('discount', y.discount, st?.discount) ?? 0) || 0))
 
   const header = findImage(dir, 'header')
-  if (!header) problem(id, 'header 이미지가 없습니다 (header.jpg, 920×430)')
+  if (!header && !st?.header) problem(id, 'header 이미지가 없습니다 (header.jpg, 920×430)')
   const shots = listImages(path.join(dir, 'screenshots'))
   const capsule = findImage(dir, 'capsule')
   const hero = findImage(dir, 'hero')
   const logo = findImage(dir, 'logo')
 
+  // Pictures in the folder win; a Steam game borrows Steam's for the rest.
   const images = {
-    header: header ? publish(id, header) : '',
+    header: header ? publish(id, header) : st?.header ?? '',
     capsule: capsule ? publish(id, capsule) : '',
     hero: hero ? publish(id, hero) : '',
     logo: logo ? publish(id, logo) : '',
-    screenshots: shots.map((s) => publish(id, s)),
+    screenshots: shots.length ? shots.map((s) => publish(id, s)) : st?.screenshots ?? [],
   }
   images.capsule ||= images.header
   images.hero ||= images.screenshots[0] || images.header
 
   const aboutPath = path.join(dir, 'about.md')
   const aboutMd = exists(aboutPath) ? fs.readFileSync(aboutPath, 'utf8') : ''
-  const aboutHtml = aboutMd ? md(aboutMd) : ''
+  const aboutHtml = aboutMd ? md(aboutMd) : st?.aboutHtml ?? ''
 
   const achievements = (Array.isArray(y.achievements) ? y.achievements : []).map((a, i) => {
     const icon = a.icon && exists(path.join(dir, a.icon)) ? publish(id, path.join(dir, a.icon)) : ''
@@ -249,10 +313,10 @@ async function buildGame(id) {
 
   const game = {
     id,
-    title: String(y.title ?? id),
+    title: String(title ?? id),
     titleEn: y.title_en ? String(y.title_en) : '',
-    developer: String(y.developer ?? ''),
-    release: comingSoon ? release : toDate(y.release),
+    developer: String(developer ?? ''),
+    release: comingSoon || steamDates ? release : toDate(y.release),
     comingSoon,
     price,
     discount,
@@ -262,14 +326,18 @@ async function buildGame(id) {
     download: y.download ? directDownload(String(y.download)) : '',
     downloadSize: y.download_size ? String(y.download_size) : '',
     version: y.version ? String(y.version) : '',
-    tags: tagList(y.tags),
-    short: String(y.short ?? ''),
+    tags: tagList(orSteam('tags', y.tags, st?.genres)),
+    short: String(orSteam('short', y.short, st?.short) ?? ''),
     controls: String(y.controls ?? ''),
     aiTools: asList(y.ai_tools),
     aiNote: String(y.ai_note ?? ''),
     devPeriod: String(y.dev_period ?? ''),
     engine: String(y.engine ?? ''),
     video: y.video ? String(y.video) : '',
+    trailers: st?.movies ?? [],
+    steam: st
+      ? { appid: st.appid, url: st.url, priceText: st.priceText, comingSoon: st.comingSoon, releaseText: st.releaseText, platforms: st.platforms, fromSteam }
+      : null,
     mobile: Boolean(y.mobile),
     hidden: Boolean(y.hidden),
     updated: y.updated ? String(y.updated) : '',
@@ -311,7 +379,7 @@ async function buildGame(id) {
   // Newest first: by date, then by version, then by upload order.
   news.sort((a, b) => b.date.localeCompare(a.date) || compareVersions(b.version, a.version) || b.order.localeCompare(a.order))
   news.forEach((n) => delete n.order)
-  game.platform = game.playUrl && game.download ? 'both' : game.playUrl ? 'web' : 'windows'
+  game.platform = game.playUrl && game.download ? 'both' : game.playUrl ? 'web' : game.download || !game.steam ? 'windows' : 'steam'
   game.sdk = game.playUrl ? await hasSdk(game.playUrl) : false
   return game
 }
@@ -403,10 +471,8 @@ function writeSharePage(g, base) {
 <meta property="og:title" content="${esc(g.title)}">
 <meta property="og:description" content="${esc(desc)}">
 <meta property="og:url" content="${esc(url)}">
-<meta property="og:image" content="${esc(base + g.images.header)}">
-<meta property="og:image:width" content="920">
-<meta property="og:image:height" content="430">
-<meta name="twitter:card" content="summary_large_image">
+<meta property="og:image" content="${esc(new URL(g.images.header, base).href)}">
+${/^https?:/.test(g.images.header) ? '' : '<meta property="og:image:width" content="920">\n<meta property="og:image:height" content="430">\n'}<meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#66c0f4">
 <link rel="icon" type="image/svg+xml" href="../../skeam-icon.svg">
 <script>location.replace('../../#/app/${g.id}')</script>
@@ -435,6 +501,9 @@ function readPicks(v, games) {
   return out
 }
 
+const SITE_YML = exists(path.join(ROOT, 'site.yml')) ? readYaml(path.join(ROOT, 'site.yml')) : {}
+const SITE_URL = siteUrl(SITE_YML)
+
 async function main() {
   rmrf(OUT_DATA)
   rmrf(OUT_IMG)
@@ -448,7 +517,7 @@ async function main() {
     .map((d) => d.name)
 
   const built = await Promise.all(ids.map(buildGame))
-  const showable = (g) => g && g.title && g.images.header && (g.comingSoon || g.playUrl || g.download || g.repo)
+  const showable = (g) => g && g.title && g.images.header && (g.comingSoon || g.playUrl || g.download || g.repo || g.steam)
   const skipped = ids.filter((id, i) => !showable(built[i]))
   const games = built.filter(showable).filter((g) => !g.hidden)
   const problemsById = {}
@@ -456,11 +525,11 @@ async function main() {
     const m = p.match(/^\[([^\]]+)\] (.*)$/)
     if (m) (problemsById[m[1]] ??= []).push(m[2])
   }
-  const siteYml = exists(path.join(ROOT, 'site.yml')) ? readYaml(path.join(ROOT, 'site.yml')) : {}
+  const siteYml = SITE_YML
   const featured = asList(siteYml.featured).filter((id) => games.some((g) => g.id === id))
   for (const id of asList(siteYml.featured)) if (!games.some((g) => g.id === id)) problem('site.yml', `없는 게임 id: ${id}`)
 
-  const url = siteUrl(siteYml)
+  const url = SITE_URL
   for (const g of games) writeSharePage(g, url)
 
   const site = {
@@ -478,6 +547,7 @@ async function main() {
   fs.writeFileSync(path.join(OUT_DATA, 'games.json'), JSON.stringify(games))
   fs.writeFileSync(path.join(OUT_DATA, 'club.json'), JSON.stringify(buildClub(games)))
   fs.writeFileSync(path.join(OUT_DATA, 'site.json'), JSON.stringify(site))
+  fs.writeFileSync(path.join(OUT_DATA, 'steam.json'), JSON.stringify(steamData))
 
   console.log(`SKEAM 데이터: 게임 ${games.length}개${skipped.length ? ` (빠진 게임: ${skipped.join(', ')})` : ''}`)
   if (problems.length) {

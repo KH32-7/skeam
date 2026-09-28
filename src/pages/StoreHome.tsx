@@ -4,7 +4,7 @@ import { StoreNav } from '../components/StoreNav'
 import { Loading, Price } from '../components/ui'
 import { useData } from '../data/api'
 import { byPopularity, useStats, weekLine } from '../data/stats'
-import { koDate, koRelease } from '../format'
+import { isWeb, isWindows, koDate, koRelease } from '../format'
 import { useStore } from '../state/store'
 import type { Game, Site } from '../types'
 
@@ -187,7 +187,7 @@ function FeatureReason({ g, note }: { g: Game; note?: string }) {
     )
   return (
     <div>
-      <b>{g.platform === 'windows' ? 'Windows 다운로드' : '브라우저에서 바로 플레이'}</b>
+      <b>{g.platform === 'steam' ? 'Steam에서 판매 중' : g.platform === 'windows' ? 'Windows 다운로드' : '브라우저에서 바로 플레이'}</b>
       {g.developer} 제작
     </div>
   )
@@ -211,7 +211,7 @@ function Deals({ games }: { games: Game[] }) {
           {games.map((g) => (
             <Link key={g.id} className="deal" to={`/app/${g.id}`}>
               <img src={g.images.header} alt="" />
-              <span className={`badge ${g.discount ? '' : 'blue'}`}>{g.discount ? '주중 특가' : g.platform === 'windows' ? 'Windows' : '브라우저'}</span>
+              <span className={`badge ${g.discount ? '' : 'blue'}`}>{g.discount ? '주중 특가' : g.platform === 'steam' ? 'Steam' : g.platform === 'windows' ? 'Windows' : '브라우저'}</span>
               {wish.includes(g.id) && <span className="wish-ribbon">★ 찜 목록에 있음</span>}
               <div className="body">
                 <span className="title">{g.title}</span>
@@ -270,6 +270,7 @@ const TABS = [
   { key: 'soon', label: '인기 출시 예정 게임', more: '/search?soon=1' },
   { key: 'web', label: '브라우저에서 플레이', more: '/search?platform=web' },
   { key: 'win', label: 'Windows 게임', more: '/search?platform=windows' },
+  { key: 'steam', label: 'Steam', more: '/search?platform=steam' },
   { key: 'sale', label: '특별 할인', more: '/search?sale=1' },
   { key: 'free', label: '주목받는 무료 게임', more: '/search?price=free' },
 ] as const
@@ -296,9 +297,11 @@ function TabbedList({ games }: { games: Game[] }) {
       case 'top':
         return byPopularity(sorted, stats)
       case 'web':
-        return sorted.filter((g) => g.platform !== 'windows')
+        return sorted.filter(isWeb)
       case 'win':
-        return sorted.filter((g) => g.platform !== 'web')
+        return sorted.filter(isWindows)
+      case 'steam':
+        return byPopularity(games.filter((g) => g.steam), stats)
       case 'sale':
         return sorted.filter((g) => g.discount > 0)
       case 'free':
@@ -318,7 +321,7 @@ function TabbedList({ games }: { games: Game[] }) {
   return (
     <>
       <div className="tabs-row">
-        {TABS.map((t) => (
+        {TABS.filter((t) => t.key !== 'steam' || games.some((g) => g.steam)).map((t) => (
           <button key={t.key} className={tab === t.key ? 'on' : ''} onClick={() => setTab(t.key)}>
             {t.label}
           </button>
