@@ -8,6 +8,15 @@ import react from '@vitejs/plugin-react'
 // showing the old one until their cache runs out.
 const ICON = `./skeam-icon.svg?v=${crypto.createHash('md5').update(fs.readFileSync('public/skeam-icon.svg')).digest('hex').slice(0, 8)}`
 
+// When the data build ran (site.json's builtAt). The page compares it with the
+// live site.json to notice it was served from an old cached index.html.
+let BUILT_AT = ''
+try {
+  BUILT_AT = JSON.parse(fs.readFileSync('public/data/site.json', 'utf8')).builtAt ?? ''
+} catch {
+  /* data not built yet */
+}
+
 // Link card for the site itself (a game's own card lives in app/<id>/, made by
 // build-data). Link previews need absolute addresses, so the site's address
 // comes from the data build (site.json), which knows which repo it runs in.
@@ -46,5 +55,5 @@ function linkCard(): Plugin {
 export default defineConfig({
   base: './',
   plugins: [react(), linkCard()],
-  define: { __SKEAM_ICON__: JSON.stringify(ICON) },
+  define: { __SKEAM_ICON__: JSON.stringify(ICON), __BUILT_AT__: JSON.stringify(BUILT_AT) },
 })
