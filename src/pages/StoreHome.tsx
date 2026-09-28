@@ -291,8 +291,8 @@ function TabbedList({ games }: { games: Game[] }) {
     switch (tab) {
       case 'new': {
         const since = new Date(Date.now() - NEW_DAYS * 86400000).toISOString().slice(0, 10)
-        const recent = sorted.filter((g, i) => g.release >= since || i < 5)
-        return byPopularity(recent, stats)
+        // Newest first, like the store's release list (popularity has its own tab).
+        return sorted.filter((g, i) => g.release >= since || i < 5)
       }
       case 'top':
         return byPopularity(sorted, stats)
