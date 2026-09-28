@@ -837,7 +837,9 @@ img {
 }
 .app-top {
   display: grid;
-  grid-template-columns: 1fr 324px;
+  /* minmax(0, …): a long thumbnail strip (Steam games have many shots) must
+     scroll inside its column, not widen the column past the screen. */
+  grid-template-columns: minmax(0, 1fr) 324px;
   gap: 14px;
   padding: 16px;
   background: rgba(0, 0, 0, 0.2);
@@ -957,7 +959,7 @@ img {
 
 .app-body {
   display: grid;
-  grid-template-columns: 1fr 308px;
+  grid-template-columns: minmax(0, 1fr) 308px;
   gap: 28px;
   margin-top: 24px;
 }
@@ -2210,14 +2212,16 @@ img {
 
 @media (max-width: 900px) {
   .feature,
-  .app-top,
-  .app-body,
   .wallet-grid,
   .checkout,
   .tab-body,
   .lib-cols,
   .search-layout {
     grid-template-columns: 1fr;
+  }
+  .app-top,
+  .app-body {
+    grid-template-columns: minmax(0, 1fr);
   }
   .feature {
     height: auto;
