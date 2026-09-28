@@ -156,7 +156,7 @@ export default function Player() {
           Shift+Tab can't be relied on. This corner button always works. */}
       <div className="overlay-fab">
         <button title="SKEAM 오버레이 (Shift+Tab)" onClick={() => setOverlay(true)}>
-          <img src="./skeam-icon.svg" alt="" />
+          <img src={__SKEAM_ICON__} alt="" />
           SKEAM
         </button>
         {/* SKEAM's own fullscreen keeps this button on screen; a game's
@@ -170,7 +170,7 @@ export default function Player() {
       </div>
       <div className="hot" onMouseEnter={() => setEdge(true)} />
       <div className={`edge ${edge ? 'show' : ''}`} onMouseLeave={() => setEdge(false)}>
-        <img src="./skeam-icon.svg" alt="" width={16} />
+        <img src={__SKEAM_ICON__} alt="" width={16} />
         {g.title}
         <button className="btn-gray" style={{ height: 24, fontSize: 12 }} onClick={() => setOverlay(true)}>
           오버레이

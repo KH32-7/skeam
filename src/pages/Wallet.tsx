@@ -146,7 +146,7 @@ function KingPay({ amount, back, onClose }: { amount: number; back: string | nul
         <span className="tot">{won(amount)}</span>
       </div>
       <div className="kingpay">
-        <img src="./skeam-icon.svg" alt="" />
+        <img src={__SKEAM_ICON__} alt="" />
         <div>
           <b>KING 페이</b>
           <div style={{ fontSize: 12, color: '#acb2b8' }}>동아리 왕실 금고에서 결제 · 실제 결제가 아닙니다</div>

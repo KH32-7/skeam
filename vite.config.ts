@@ -1,6 +1,12 @@
+import crypto from 'node:crypto'
 import fs from 'node:fs'
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
+
+// The SKEAM mark's address carries a hash of the file, so browsers (and
+// GitHub Pages' 10-minute cache) pick up a redrawn icon right away instead of
+// showing the old one until their cache runs out.
+const ICON = `./skeam-icon.svg?v=${crypto.createHash('md5').update(fs.readFileSync('public/skeam-icon.svg')).digest('hex').slice(0, 8)}`
 
 // Link card for the site itself (a game's own card lives in app/<id>/, made by
 // build-data). Link previews need absolute addresses, so the site's address
@@ -8,7 +14,7 @@ import react from '@vitejs/plugin-react'
 function linkCard(): Plugin {
   return {
     name: 'skeam-link-card',
-    transformIndexHtml() {
+    transformIndexHtml(html) {
       let url = 'https://kh32-7.github.io/skeam/'
       try {
         url = JSON.parse(fs.readFileSync('public/data/site.json', 'utf8')).url || url
@@ -16,7 +22,7 @@ function linkCard(): Plugin {
         /* data not built yet */
       }
       const meta = (property: string, content: string) => ({ tag: 'meta', attrs: { property, content }, injectTo: 'head' as const })
-      return [
+      const tags = [
         { tag: 'meta', attrs: { name: 'description', content: 'KING의 게임 상점' }, injectTo: 'head' },
         meta('og:type', 'website'),
         meta('og:site_name', 'SKEAM'),
@@ -30,6 +36,7 @@ function linkCard(): Plugin {
         { tag: 'meta', attrs: { name: 'twitter:card', content: 'summary_large_image' }, injectTo: 'head' },
         { tag: 'meta', attrs: { name: 'theme-color', content: '#66c0f4' }, injectTo: 'head' },
       ]
+      return { html: html.replace('href="./skeam-icon.svg"', `href="${ICON}"`), tags }
     },
   }
 }
@@ -39,4 +46,5 @@ function linkCard(): Plugin {
 export default defineConfig({
   base: './',
   plugins: [react(), linkCard()],
+  define: { __SKEAM_ICON__: JSON.stringify(ICON) },
 })

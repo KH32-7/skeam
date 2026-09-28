@@ -493,7 +493,7 @@ function writeSharePage(g, base) {
 <meta property="og:image" content="${esc(new URL(g.images.header, base).href)}">
 ${/^https?:/.test(g.images.header) ? '' : '<meta property="og:image:width" content="920">\n<meta property="og:image:height" content="430">\n'}<meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#66c0f4">
-<link rel="icon" type="image/svg+xml" href="../../skeam-icon.svg">
+<link rel="icon" type="image/svg+xml" href="../../skeam-icon.svg?v=${version(path.join(ROOT, 'public', 'skeam-icon.svg'))}">
 <script>location.replace('../../#/app/${g.id}')</script>
 </head>
 <body style="background:#1b2838;color:#c7d5e0;font-family:sans-serif">

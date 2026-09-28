@@ -171,7 +171,7 @@ export function Chrome() {
               location.reload()
             }}
           >
-            <img src="./skeam-icon.svg" alt="" />
+            <img src={__SKEAM_ICON__} alt="" />
             SKEAM
           </a>
         </div>

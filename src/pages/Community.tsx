@@ -24,7 +24,7 @@ export default function Community() {
               <b style={{ color: '#fff', fontSize: 22 }}>{club.members.length}</b> 멤버
             </span>
           </div>
-          <img className="crown" src="./skeam-icon.svg" alt="" />
+          <img className="crown" src={__SKEAM_ICON__} alt="" />
         </div>
 
         <div className="section-head">

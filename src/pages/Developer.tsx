@@ -8,7 +8,7 @@ import type { Club, Game } from '../types'
 export function memberAvatar(m: Club['members'][number] | undefined) {
   if (m?.avatar) return m.avatar
   if (m?.github) return `https://github.com/${m.github}.png?size=184`
-  return './skeam-icon.svg'
+  return __SKEAM_ICON__
 }
 
 export const developerPath = (name: string) => `/developer/${encodeURIComponent(name)}`
