@@ -4,7 +4,8 @@
 //
 //   BASE_SHA=... HEAD_SHA=... PR_AUTHOR=... REPO_OWNER=... node scripts/check-pr.mjs
 //
-// A PR passes when:
+// A PR from the repo owner or an account in site.yml `auto_merge_github`
+// passes whatever it changes. Any other PR passes when:
 //   - it only touches one games/<id>/ folder (no symlinks, game.yml kept),
 //   - it's a new game (anyone may add one, like the register desk), or its
 //     author may change that existing game: the repo owner, the game's own
@@ -63,6 +64,13 @@ const changes = raw
   : []
 if (!changes.length) finish(false, ['바뀐 파일이 없어요.'])
 
+// 0. The repo owner and the accounts in site.yml `auto_merge_github` are
+// merged as they are, whatever they touch. site.yml is read from the base
+// branch, so a PR can't put its own author on the list.
+const site = yaml.load(fs.readFileSync('site.yml', 'utf8')) ?? {}
+if (same(PR_AUTHOR, REPO_OWNER) || asList(site.auto_merge_github).some((a) => same(a, PR_AUTHOR)))
+  finish(true, [`- 보낸 사람: ${PR_AUTHOR} (${same(PR_AUTHOR, REPO_OWNER) ? '레포 주인' : 'site.yml auto_merge_github'}), 바뀐 파일과 상관없이 자동 머지`, `- 바뀐 파일 ${changes.length}개`])
+
 const outside = changes.filter((c) => !/^games\/[a-z0-9][a-z0-9-]*\/./.test(c.file)).map((c) => c.file)
 if (outside.length) finish(false, [`games/<게임 id>/ 밖의 파일이 바뀌었어요: ${outside.slice(0, 5).join(', ')}`])
 const ids = [...new Set(changes.map((c) => c.file.split('/')[1]))]
@@ -76,7 +84,6 @@ const headYml = show(HEAD_SHA, `games/${id}/game.yml`)
 if (headYml == null) finish(false, [`games/${id}/game.yml이 없어요. 게임 삭제는 운영자가 직접 처리해요.`])
 
 // 2. Who may change it.
-const site = yaml.load(fs.readFileSync('site.yml', 'utf8')) ?? {}
 const trusted = asList(site.trusted_github)
 const isNew = baseYml == null
 const owner = ownerOf(isNew ? headYml : baseYml)

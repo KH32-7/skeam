@@ -17,3 +17,7 @@ admins: [KH327, gamzuha]
 # 레포 주인, 그리고 아래 계정이 보낸 PR만 검사 통과 시 자동으로 머지됩니다.
 # (아래 계정은 다른 사람 게임도 고칠 수 있어요.)
 trusted_github: [Gammja17]
+
+# 무조건 자동 머지: 레포 주인과 아래 GitHub 계정이 보낸 PR은 어떤 파일을 바꾸든 바로 머지됩니다.
+# (초안(draft) PR은 머지되지 않아요. .github/workflows 파일을 바꾸는 PR은 GitHub가 막아서 직접 머지해야 해요.)
+auto_merge_github: [Gammja17]
