@@ -116,6 +116,9 @@ function releaseOf(v) {
   return ''
 }
 
+/** The highest price a game can ask, in won (9,999만 원). */
+const MAX_PRICE = 99_999_999
+
 // Today in Korea, so a game dated 2026-10-15 opens at midnight KST.
 const TODAY_KST = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10)
 
@@ -281,9 +284,13 @@ async function buildGame(id) {
   const hasFiles = Boolean(y.play_url || y.repo || y.download || appid)
   const comingSoon = steamDates ? st.comingSoon : Boolean(y.coming_soon) && !(hasFiles && /^\d{4}-\d{2}-\d{2}$/.test(release) && release <= TODAY_KST)
   if (!comingSoon && !hasFiles) problem(id, 'play_url, repo, download, steam 중 하나는 있어야 합니다 (출시 예정 게임이면 coming_soon: true)')
-  const price = Number(orSteam('price', y.price, st?.price) ?? 0)
-  if (!Number.isFinite(price) || price < 0) problem(id, 'price는 0 이상의 숫자여야 합니다')
-  const discount = Math.min(100, Math.max(0, Number(orSteam('discount', y.discount, st?.discount) ?? 0) || 0))
+  const askedPrice = Number(orSteam('price', y.price, st?.price) ?? 0)
+  if (!Number.isFinite(askedPrice) || askedPrice < 0) problem(id, 'price는 0 이상의 숫자여야 합니다')
+  // Joke prices (9.99e+29) and discounts (99.99999999999999%) blew up the store
+  // lists: prices stop at ₩ 99,999,999 and discounts are whole percents.
+  const price = Number.isFinite(askedPrice) ? Math.min(MAX_PRICE, Math.max(0, Math.round(askedPrice))) : 0
+  if (askedPrice > MAX_PRICE) console.warn(`  [${id}] price ${askedPrice}가 최대 ₩${MAX_PRICE.toLocaleString('ko-KR')}를 넘어서 최대값으로 씀`)
+  const discount = Math.floor(Math.min(100, Math.max(0, Number(orSteam('discount', y.discount, st?.discount) ?? 0) || 0)))
 
   const header = findImage(dir, 'header')
   if (!header && !st?.header) problem(id, 'header 이미지가 없습니다 (header.jpg, 920×430)')

@@ -118,6 +118,8 @@ const SLOTS = {
 type Slot = keyof typeof SLOTS
 
 const MAX_UPLOAD = 30 * 1024 * 1024
+/** Same cap as scripts/build-data.mjs: a price over this is cut down to it. */
+const MAX_PRICE = 99_999_999
 
 const STEAM_RE = /store\.steampowered\.com\/app\/(\d+)/
 /** "starlight-odyssey" from https://store.steampowered.com/app/1234560/Starlight_Odyssey/ */
@@ -355,6 +357,7 @@ function GameForm({ games, site, existing, existingAbout }: { games: Game[]; sit
     if (!f.developer.trim()) e.developer = '제작자 이름을 적어 주세요'
     if (!f.short.trim() && !steam) e.short = '한 줄 소개를 적어 주세요'
     if (!(Number(f.price) >= 0) && !(steam && !f.price.trim())) e.price = '0 이상의 숫자'
+    else if (Number(f.price) > MAX_PRICE) e.price = '최대 ₩ 99,999,999 (9,999만 원)까지'
     if (!f.soon && !f.playUrl && f.win === 'none' && !steam) e.playUrl = '브라우저 주소나 Windows 다운로드 중 하나는 있어야 합니다 (아직 없으면 "출시 예정 게임"을 체크하세요)'
     if (f.playUrl && !/^https:\/\//.test(f.playUrl)) e.playUrl = 'https://로 시작하는 주소'
     if (f.win === 'repo' && !/github\.com\/[^/]+\/[^/]+/.test(f.repo)) e.repo = 'https://github.com/아이디/레포 형태'
@@ -509,12 +512,12 @@ function GameForm({ games, site, existing, existingAbout }: { games: Game[]; sit
           <div className="row3">
             <div className="field">
               <label>가격 (원)</label>
-              <input type="number" min={0} step={100} value={f.price} onChange={(e) => set('price', e.target.value)} placeholder={steam ? 'Steam 가격' : undefined} />
+              <input type="number" min={0} max={MAX_PRICE} step={100} value={f.price} onChange={(e) => set('price', e.target.value)} placeholder={steam ? 'Steam 가격' : undefined} />
               {err('price')}
             </div>
             <div className="field">
               <label>할인율 (%)</label>
-              <input type="number" min={0} max={90} value={f.discount} onChange={(e) => set('discount', e.target.value)} placeholder={steam ? 'Steam 할인' : undefined} />
+              <input type="number" min={0} max={100} step={1} value={f.discount} onChange={(e) => set('discount', e.target.value.replace(/\..*$/, ''))} placeholder={steam ? 'Steam 할인' : undefined} />
             </div>
             {steam ? (
               <div className="field">
