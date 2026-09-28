@@ -427,9 +427,12 @@ function buildClub(games) {
     banner: y.banner ? pub(y.banner) : '',
     join: String(y.join ?? ''),
     members: (() => {
+      // Admins (site.yml `admins`) show as 관리자 unless club.yml or their profile says otherwise.
+      const admins = new Set(asList(SITE_YML.admins).map((a) => a.toLowerCase()))
+      const defaultRole = (name) => (admins.has(String(name).toLowerCase()) ? '관리자' : '제작자')
       const listed = (y.members ?? []).map((m) => ({
         name: String(m.name ?? ''),
-        role: m.role ? String(m.role) : '제작자',
+        role: m.role ? String(m.role) : defaultRole(m.name ?? ''),
         github: m.github ? String(m.github) : '',
         avatar: m.avatar ? pub(m.avatar) : '',
         bio: String(m.bio ?? ''),
@@ -440,7 +443,7 @@ function buildClub(games) {
         const key = g.developer.toLowerCase()
         if (!g.developer || known.has(key)) continue
         known.add(key)
-        extra.push({ name: g.developer, role: '제작자', github: githubOf(g), avatar: '', bio: '' })
+        extra.push({ name: g.developer, role: defaultRole(g.developer), github: githubOf(g), avatar: '', bio: '' })
       }
       return [...listed, ...extra]
     })(),
