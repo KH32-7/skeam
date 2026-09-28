@@ -91,7 +91,7 @@ const empty: Form = {
   short: '',
   tags: '',
   controls: '',
-  aiTools: 'Claude Code',
+  aiTools: '',
   devPeriod: '',
   aiNote: '',
   engine: '',
@@ -441,14 +441,12 @@ function GameForm({ games, site, existing, existingAbout }: { games: Game[]; sit
             value={f.steam}
             onChange={(e) => {
               const v = e.target.value.trim()
-              // A Steam release isn't necessarily an AI game: drop the untouched default.
-              // Also the untouched ₩0 price, so the Steam price shows.
+              // Clear the untouched ₩0 price, so the Steam price shows.
               setF((x) => {
                 const fresh = STEAM_RE.test(v) && !STEAM_RE.test(x.steam)
                 return {
                   ...x,
                   steam: v,
-                  ...(fresh && x.aiTools === empty.aiTools ? { aiTools: '' } : {}),
                   ...(fresh && x.price === empty.price && x.discount === empty.discount ? { price: '', discount: '' } : {}),
                 }
               })
@@ -658,7 +656,9 @@ function GameForm({ games, site, existing, existingAbout }: { games: Game[]; sit
           </div>
           <div className="row2">
             <div className="field">
-              <label>사용한 AI 도구</label>
+              <label>
+                사용한 AI 도구 <small>AI로 만들었다면</small>
+              </label>
               <input value={f.aiTools} onChange={(e) => set('aiTools', e.target.value)} placeholder="Claude Code, Midjourney" />
             </div>
             <div className="field">
@@ -682,7 +682,7 @@ function GameForm({ games, site, existing, existingAbout }: { games: Game[]; sit
             <label>
               제작 후기 한 줄 <small>선택</small>
             </label>
-            <input value={f.aiNote} onChange={(e) => set('aiNote', e.target.value)} placeholder="AI한테 물리 엔진을 설명시키다 밤을 새웠다" />
+            <input value={f.aiNote} onChange={(e) => set('aiNote', e.target.value)} placeholder="마감 전날 보스전을 통째로 갈아엎었다" />
           </div>
         </Section>
 
@@ -969,7 +969,7 @@ function downloadTemplate(me: string) {
     tags: ['기본태그 목록에서 4~8개'],
     controls: '조작법 한 줄 (예: WASD 이동, 마우스 클릭)',
     engine: '엔진·도구 (예: Godot 4.7, Unity, HTML/JavaScript)',
-    ai_tools: ['Claude Code'],
+    ai_tools: ['AI로 만들었다면 사용한 AI 도구 (없으면 빈 목록)'],
     dev_period: '제작 기간 (예: 2주)',
     ai_note: '제작 후기 한 줄 (선택)',
     play_url: '브라우저 게임 주소 (예: https://아이디.github.io/게임/)',

@@ -1955,6 +1955,8 @@ img {
 }
 .club-hero p {
   margin: 8px 0 0;
+  /* keep the line clear of the crown on the right */
+  padding-right: 190px;
   font-size: 18px;
   color: #c6d4df;
 }
@@ -3108,6 +3110,9 @@ button.account-pill {
   .club-hero .crown {
     width: 70px;
     right: 14px;
+  }
+  .club-hero p {
+    padding-right: 84px;
   }
   .members {
     grid-template-columns: 1fr;

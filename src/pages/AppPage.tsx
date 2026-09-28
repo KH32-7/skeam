@@ -206,46 +206,46 @@ function App({ g, site }: { g: Game; site: Site }) {
             </>
           )}
 
-          {/* A Steam release may not be an AI game at all; show the box only when there is something to say. */}
-          {(!g.steam || g.aiTools.length > 0 || g.devPeriod || g.aiNote) && (
-            <>
-              <h3 className="block-head" style={{ marginTop: 28 }}>
-                AI 제작 정보
-              </h3>
-              <div className="ai-box">
+          {/* Not every game here is made with AI: the AI line shows only when the creator named tools. */}
+          <>
+            <h3 className="block-head" style={{ marginTop: 28 }}>
+              제작 정보
+            </h3>
+            <div className="ai-box">
+              {g.aiTools.length > 0 && (
                 <div>
                   <div className="k">사용한 AI 도구</div>
-                  <div className="v">{g.aiTools.length ? g.aiTools.join(', ') : '적지 않음'}</div>
+                  <div className="v">{g.aiTools.join(', ')}</div>
                 </div>
-                <div>
-                  <div className="k">제작 기간</div>
-                  <div className="v">{g.devPeriod || '적지 않음'}</div>
-                </div>
-                {g.engine && (
-                  <div>
-                    <div className="k">엔진·도구</div>
-                    <div className="v">{g.engine}</div>
-                  </div>
-                )}
-                <div>
-                  <div className="k">실행 환경</div>
-                  <div className="v">
-                    {g.platform === 'windows'
-                      ? `Windows 64비트${g.downloadSize ? ` · ${g.downloadSize}` : ''}`
-                      : g.platform === 'steam'
-                        ? `Steam${steamOs(g) ? ` (${steamOs(g)})` : ''}`
-                        : '최신 크롬·엣지 브라우저'}
-                  </div>
-                </div>
-                {g.aiNote && (
-                  <div style={{ gridColumn: '1 / -1' }}>
-                    <div className="k">제작 후기</div>
-                    <div className="v">“{g.aiNote}”</div>
-                  </div>
-                )}
+              )}
+              <div>
+                <div className="k">제작 기간</div>
+                <div className="v">{g.devPeriod || '적지 않음'}</div>
               </div>
-            </>
-          )}
+              {g.engine && (
+                <div>
+                  <div className="k">엔진·도구</div>
+                  <div className="v">{g.engine}</div>
+                </div>
+              )}
+              <div>
+                <div className="k">실행 환경</div>
+                <div className="v">
+                  {g.platform === 'windows'
+                    ? `Windows 64비트${g.downloadSize ? ` · ${g.downloadSize}` : ''}`
+                    : g.platform === 'steam'
+                      ? `Steam${steamOs(g) ? ` (${steamOs(g)})` : ''}`
+                      : '최신 크롬·엣지 브라우저'}
+                </div>
+              </div>
+              {g.aiNote && (
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <div className="k">제작 후기</div>
+                  <div className="v">“{g.aiNote}”</div>
+                </div>
+              )}
+            </div>
+          </>
 
           <div id="reviews">
             <Reviews endpoint={endpoint} gameId={g.id} title={g.title} />

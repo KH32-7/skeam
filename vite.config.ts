@@ -17,13 +17,14 @@ function linkCard(): Plugin {
       }
       const meta = (property: string, content: string) => ({ tag: 'meta', attrs: { property, content }, injectTo: 'head' as const })
       return [
-        { tag: 'meta', attrs: { name: 'description', content: 'KING 동아리가 AI로 만든 게임을 모아 둔 상점' }, injectTo: 'head' },
+        { tag: 'meta', attrs: { name: 'description', content: '게임 제작 동아리 KING의 게임 상점' }, injectTo: 'head' },
         meta('og:type', 'website'),
         meta('og:site_name', 'SKEAM'),
         meta('og:title', 'SKEAM'),
-        meta('og:description', 'KING 동아리가 AI로 만든 게임을 모아 둔 상점. 브라우저에서 바로 하거나 받아서 플레이'),
+        meta('og:description', '게임 제작 동아리 KING의 게임 상점. 동아리 프로젝트부터 Steam 출시작까지 바로 플레이해 보세요'),
         meta('og:url', url),
-        meta('og:image', url + 'og.png'),
+        // ?v= makes KakaoTalk and Discord fetch the picture again when it changes.
+        meta('og:image', url + 'og.png?v=2'),
         meta('og:image:width', '1200'),
         meta('og:image:height', '630'),
         { tag: 'meta', attrs: { name: 'twitter:card', content: 'summary_large_image' }, injectTo: 'head' },
