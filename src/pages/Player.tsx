@@ -191,16 +191,21 @@ export default function Player() {
               </div>
               <CloudChip status={cloud.status} savedAt={cloud.savedAt} />
             </div>
-            <span style={{ flex: 1 }} />
-            <button className="btn-gray" onClick={() => document.documentElement.requestFullscreen?.()}>
-              전체 화면
-            </button>
-            <button className="btn-gray" onClick={() => window.open(g.playUrl, '_blank')}>
-              새 탭에서 열기
-            </button>
-            <button className="btn-green" onClick={() => exit(`/library/${g.id}`)}>
-              게임 종료
-            </button>
+            {/* one group: on a narrow screen it drops below the title as a full-width row */}
+            <div className="ot-actions">
+              <button className="btn-gray" onClick={() => setOverlay(false)}>
+                닫기
+              </button>
+              <button className="btn-gray" onClick={() => document.documentElement.requestFullscreen?.()}>
+                전체 화면
+              </button>
+              <button className="btn-gray" onClick={() => window.open(g.playUrl, '_blank')}>
+                새 탭에서 열기
+              </button>
+              <button className="btn-green" onClick={() => exit(`/library/${g.id}`)}>
+                게임 종료
+              </button>
+            </div>
           </div>
           <div className="panels">
             {g.achievements.length > 0 && <OverlayAchievements gameId={g.id} list={g.achievements} />}
