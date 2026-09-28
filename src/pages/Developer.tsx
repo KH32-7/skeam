@@ -1,6 +1,6 @@
 import { Link, useParams } from 'react-router-dom'
 import { StoreNav } from '../components/StoreNav'
-import { Loading, Price } from '../components/ui'
+import { InLibrary, Loading, Price } from '../components/ui'
 import { useData, useProfiles } from '../data/api'
 import { koDate, platformText } from '../format'
 import type { Club, Game } from '../types'
@@ -65,6 +65,7 @@ export function GameList({ games, empty }: { games: Game[]; empty: string }) {
       {games.map((g) => (
         <Link key={g.id} className="search-row" to={`/app/${g.id}`}>
           <img src={g.images.header} alt="" />
+          <InLibrary id={g.id} />
           <div>
             <div className="t">{g.title}</div>
             <div className="plat">

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { StoreNav } from '../components/StoreNav'
-import { Loading, Price } from '../components/ui'
+import { InLibrary, Loading, Price } from '../components/ui'
 import { useData } from '../data/api'
 import { byPopularity, useStats, weekLine } from '../data/stats'
 import { isWeb, isWindows, koDate, koRelease } from '../format'
@@ -211,6 +211,7 @@ function Deals({ games }: { games: Game[] }) {
           {games.map((g) => (
             <Link key={g.id} className="deal" to={`/app/${g.id}`}>
               <img src={g.images.header} alt="" />
+              <InLibrary id={g.id} className="in-deal" />
               <span className={`badge ${g.discount ? '' : 'blue'}`}>{g.discount ? '주중 특가' : g.platform === 'steam' ? 'Steam' : g.platform === 'windows' ? 'Windows' : '브라우저'}</span>
               {wish.includes(g.id) && <span className="wish-ribbon">★ 찜 목록에 있음</span>}
               <div className="body">
@@ -249,6 +250,7 @@ function Picks({ picks, by }: { picks: { id: string; note: string; game: Game }[
         {picks.slice(0, 4).map(({ id, note, game: g }) => (
           <Link key={id} className="pick" to={`/app/${id}`}>
             <img src={g.images.header} alt="" />
+            <InLibrary id={id} />
             <div className="body">
               <span className="title">{g.title}</span>
               {note && <p className="note">“{note}”</p>}
@@ -340,6 +342,7 @@ function TabbedList({ games }: { games: Game[] }) {
           {list.map((g, i) => (
             <Link key={g.id} className={`tab-item ${i === hover ? 'hl' : ''}`} to={`/app/${g.id}`} onMouseEnter={() => setHover(i)}>
               <img src={g.images.header} alt="" />
+              <InLibrary id={g.id} />
               <div>
                 <div className="t">{g.title}</div>
                 <div className="tags">{g.tags.join(', ')}</div>

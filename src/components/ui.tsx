@@ -1,6 +1,21 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import type { Game } from '../types'
 import { won } from '../format'
+import { useStore } from '../state/store'
+
+/** Steam's "라이브러리에 있음" tag on the corner of a game's picture, for games already owned. */
+export function InLibrary({ id, className = '' }: { id: string; className?: string }) {
+  const owned = useStore((s) => !!s.owned[id])
+  if (!owned) return null
+  return (
+    <span className={`lib-badge ${className}`}>
+      <svg width="10" height="9" viewBox="0 0 10 9" aria-hidden="true">
+        <path d="M0 0.5h10M0 4.5h10M0 8.5h10" stroke="currentColor" strokeWidth="1.8" />
+      </svg>
+      라이브러리에 있음
+    </span>
+  )
+}
 
 export function Price({ game, className = '' }: { game: Pick<Game, 'price' | 'discount' | 'finalPrice'> & { comingSoon?: boolean }; className?: string }) {
   if (game.comingSoon) {

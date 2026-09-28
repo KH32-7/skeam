@@ -4314,3 +4314,42 @@ button.link:hover {
     font-size: 12px;
   }
 }
+
+/* "라이브러리에 있음" on the corner of an owned game's picture, like Steam */
+.tab-item,
+.search-row,
+.pick {
+  position: relative;
+}
+.lib-badge {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 7px;
+  border-radius: 0 0 2px 0;
+  background: #67a7d3;
+  color: #0e1a26;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+.search-row .lib-badge {
+  top: 4px;
+  left: 4px;
+}
+.lib-badge.in-deal {
+  top: 26px;
+}
+@media (max-width: 900px) {
+  .tab-item .lib-badge {
+    top: 6px;
+    left: 6px;
+    font-size: 10px;
+  }
+}

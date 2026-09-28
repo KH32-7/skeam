@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { StoreNav } from '../components/StoreNav'
-import { Loading, Price } from '../components/ui'
+import { InLibrary, Loading, Price } from '../components/ui'
 import { useData } from '../data/api'
 import { byPopularity, useStats, weekLine } from '../data/stats'
 import { isWeb, isWindows, koDate, koRelease, platformText } from '../format'
@@ -68,6 +68,7 @@ export default function Search({ wishlistOnly = false }: { wishlistOnly?: boolea
               {list.map((g) => (
                 <Link key={g.id} className="search-row" to={`/app/${g.id}`}>
                   <img src={g.images.header} alt="" />
+                  <InLibrary id={g.id} />
                   <div>
                     <div className="t">{g.title}</div>
                     <div className="plat">
