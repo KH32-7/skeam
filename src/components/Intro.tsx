@@ -170,8 +170,8 @@ export function Intro() {
             </linearGradient>
             <clipPath id="intro-clip">
               <circle cx="32" cy="36" r="26.2" />
-              <path transform="translate(19.47 17.43) rotate(-34) scale(0.62)" d="M-14.2 -6.2 L-17.6 -19.4 L-8.6 -12.4 L0 -23.6 L8.6 -12.4 L17.6 -19.4 L14.2 -6.2 Q0 -3.4 -14.2 -6.2 Z" />
-              <path transform="translate(19.47 17.43) rotate(-34) scale(0.62)" d="M-15.2 -6.9 Q0 -3.8 15.2 -6.9 L15.2 -1.2 Q0 1.9 -15.2 -1.2 Z" />
+              <path className="i-place" transform="translate(19.47 17.43) rotate(-34) scale(0.62)" d="M-14.2 -6.2 L-17.6 -19.4 L-8.6 -12.4 L0 -23.6 L8.6 -12.4 L17.6 -19.4 L14.2 -6.2 Q0 -3.4 -14.2 -6.2 Z" />
+              <path className="i-place" transform="translate(19.47 17.43) rotate(-34) scale(0.62)" d="M-15.2 -6.9 Q0 -3.8 15.2 -6.9 L15.2 -1.2 Q0 1.9 -15.2 -1.2 Z" />
             </clipPath>
           </defs>
           <circle className="i-pulse" cx="32" cy="36" r="25" />
@@ -194,7 +194,7 @@ export function Intro() {
           </g>
           <circle className="i-small" cx="21.5" cy="47.5" r="4.6" fill="#0b1524" stroke="url(#intro-metal)" strokeWidth="2.6" />
           {/* the transform sits on an outer group: the drop-in animation sets its own transform on .i-crown */}
-          <g transform="translate(19.47 17.43) rotate(-34) scale(0.62)">
+          <g className="i-place" transform="translate(19.47 17.43) rotate(-34) scale(0.62)">
             <g className="i-crown">
               <path d="M-14.2 -6.2 L-17.6 -19.4 L-8.6 -12.4 L0 -23.6 L8.6 -12.4 L17.6 -19.4 L14.2 -6.2 Q0 -3.4 -14.2 -6.2 Z" fill="url(#intro-gold)" stroke="#7a4d0b" strokeWidth="0.9" strokeLinejoin="round" />
               <path d="M0 -23.6 L-8.6 -12.4 L-14.2 -6.2 Q-7 -4.8 0 -4.6 Z" fill="#fff" opacity="0.22" />

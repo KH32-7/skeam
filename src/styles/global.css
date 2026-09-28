@@ -3596,6 +3596,15 @@ button.account-pill {
   transform-box: fill-box;
   transform-origin: center;
 }
+/* Parts placed with an SVG transform attribute (the tilted crown and its
+   clip shapes) must turn around the drawing's origin, as they do in
+   skeam-icon.svg. The rule above would make some browsers (Samsung Internet
+   among them) rotate and scale them around their own middle instead, which
+   lifts the crown off the rim. */
+.intro-mark .i-place {
+  transform-box: view-box;
+  transform-origin: 0 0;
+}
 .intro .i-disc {
   opacity: 0;
   animation: i-disc 0.65s cubic-bezier(0.2, 0.9, 0.3, 1.2) 0.15s forwards;
