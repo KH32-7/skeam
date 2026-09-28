@@ -265,14 +265,14 @@ function Picks({ picks, by }: { picks: { id: string; note: string; game: Game }[
 }
 
 const TABS = [
-  { key: 'top', label: '이번 주 인기 게임', more: '/search?sort=top' },
-  { key: 'new', label: '인기 신규 출시 게임', more: '/search?sort=new' },
-  { key: 'soon', label: '인기 출시 예정 게임', more: '/search?soon=1' },
-  { key: 'web', label: '브라우저에서 플레이', more: '/search?platform=web' },
+  { key: 'top', label: '이번 주 인기', more: '/search?sort=top' },
+  { key: 'new', label: '신규 출시', more: '/search?sort=new' },
+  { key: 'soon', label: '출시 예정', more: '/search?soon=1' },
+  { key: 'web', label: '브라우저 게임', more: '/search?platform=web' },
   { key: 'win', label: 'Windows 게임', more: '/search?platform=windows' },
   { key: 'steam', label: 'Steam', more: '/search?platform=steam' },
   { key: 'sale', label: '특별 할인', more: '/search?sale=1' },
-  { key: 'free', label: '주목받는 무료 게임', more: '/search?price=free' },
+  { key: 'free', label: '무료 게임', more: '/search?price=free' },
 ] as const
 
 /** Like Steam, each tab shows ten games; the rest are one "더 보기" away. */
