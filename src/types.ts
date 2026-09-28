@@ -31,6 +31,19 @@ export interface SteamInfo {
   comingSoon: boolean
   releaseText: string
   platforms: { windows: boolean; mac: boolean; linux: boolean }
+  /** Sampled from Steam every hour (the game isn't played inside SKEAM, so the club's play numbers miss it). */
+  popularity?: {
+    /** Most players online at once in the last 7 days. */
+    peak: number
+    /** Steam reviews, all languages. */
+    reviews: number
+    /** Reviews written in the last 7 days. */
+    newReviews: number
+    /** Share of positive reviews, 0-100; null before any. */
+    positive: number | null
+    /** "매우 긍정적", or "사용자 평가 3개" while there are few. */
+    label: string
+  }
   /** game.yml fields that were blank and came from Steam (the register helper leaves them blank again). */
   fromSteam: string[]
 }

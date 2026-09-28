@@ -22,7 +22,7 @@ import path from 'node:path'
 import * as yaml from 'js-yaml'
 import { marked } from 'marked'
 import sanitizeHtml from 'sanitize-html'
-import { fetchSteam, normalizeSteam, steamAppId } from './steam.mjs'
+import { fetchPlayers, fetchReviews, fetchSteam, normalizeSteam, steamAppId, steamPopularity, steamRelease } from './steam.mjs'
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1')), '..')
 const STRICT = process.argv.includes('--strict')
@@ -175,8 +175,9 @@ async function latestRelease(repo) {
   }
 }
 
-// Steam answers for this build, written to data/steam.json. When Steam is
-// down, the file the live site built last time stands in, so an hourly build
+// Steam answers for this build, written to data/steam.json with a week of
+// player and review samples. The file the live site built last time carries
+// that history over, and stands in when Steam is down, so an hourly build
 // never drops a Steam game or its pictures.
 const steamData = {}
 let lastSteam
@@ -188,16 +189,31 @@ function previousSteam(appid) {
 }
 
 async function steamInfo(id, appid) {
-  const r = await fetchSteam(appid)
-  if (r.data) return normalizeSteam(appid, r.data, steamHtml)
-  if (r.missing) {
+  const [r, prev] = await Promise.all([fetchSteam(appid), previousSteam(appid)])
+  let st = null
+  if (r.data) {
+    st = normalizeSteam(appid, r.data, steamHtml)
+    // Out, but the Korean date didn't read: try the English store, then last time's date.
+    if (!st.comingSoon && !st.release) {
+      const en = await fetchSteam(appid, 'english')
+      st.release = steamRelease(en.data?.release_date?.date) || prev?.release || ''
+      if (!st.release) console.warn(`  [${id}] Steam 출시일을 읽지 못했습니다: ${st.releaseText}`)
+    }
+  } else if (r.missing) {
     problem(id, `Steam에서 앱 ${appid}을(를) 찾지 못했습니다 (주소를 확인하거나, 상점 페이지가 공개됐는지 확인해 주세요)`)
     return null
+  } else {
+    if (prev) console.warn(`  [${id}] Steam 확인 실패 (${r.error}), 지난번 정보로 진행`)
+    else problem(id, `Steam 정보를 불러오지 못했습니다 (${r.error})`)
+    st = prev && { ...prev }
   }
-  const prev = await previousSteam(appid)
-  if (prev) console.warn(`  [${id}] Steam 확인 실패 (${r.error}), 지난번 정보로 진행`)
-  else problem(id, `Steam 정보를 불러오지 못했습니다 (${r.error})`)
-  return prev
+  if (!st) return null
+  const [players, reviews] = await Promise.all([fetchPlayers(appid), fetchReviews(appid)])
+  const pop = steamPopularity(prev?.history, players, reviews)
+  st.history = pop.history
+  // Steam down this hour: keep last time's review words instead of blanking them.
+  st.popularity = reviews ? pop.summary : { ...pop.summary, positive: prev?.popularity?.positive ?? null, label: prev?.popularity?.label ?? '' }
+  return st
 }
 
 /**
@@ -336,7 +352,7 @@ async function buildGame(id) {
     video: y.video ? String(y.video) : '',
     trailers: st?.movies ?? [],
     steam: st
-      ? { appid: st.appid, url: st.url, priceText: st.priceText, comingSoon: st.comingSoon, releaseText: st.releaseText, platforms: st.platforms, fromSteam }
+      ? { appid: st.appid, url: st.url, priceText: st.priceText, comingSoon: st.comingSoon, releaseText: st.releaseText, platforms: st.platforms, popularity: st.popularity, fromSteam }
       : null,
     mobile: Boolean(y.mobile),
     hidden: Boolean(y.hidden),

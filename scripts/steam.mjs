@@ -18,9 +18,9 @@ export function steamAppId(v) {
   return m ? Number(m[1] ?? m[0]) : null
 }
 
-export async function fetchSteam(appid) {
+export async function fetchSteam(appid, lang = 'koreana') {
   try {
-    const res = await fetch(`${API}?appids=${appid}&l=koreana&cc=kr`, {
+    const res = await fetch(`${API}?appids=${appid}&l=${lang}&cc=kr`, {
       headers: { 'User-Agent': 'skeam-build', 'Accept-Language': 'ko' },
       signal: AbortSignal.timeout(15000),
     })
@@ -101,5 +101,75 @@ export function normalizeSteam(appid, d, html) {
     release: steamRelease(d.release_date?.date),
     releaseText: String(d.release_date?.date ?? ''),
     platforms: { windows: !!d.platforms?.windows, mac: !!d.platforms?.mac, linux: !!d.platforms?.linux },
+  }
+}
+
+// ---- popularity ----------------------------------------------------------
+//
+// Steam games aren't played inside SKEAM, so the club's play numbers never see
+// them. The hourly build samples Steam instead: players online right now and
+// the review count. data/steam.json keeps a week of samples (carried over from
+// the last deploy), and games.json gets the week's summary.
+
+const HOUR = 3600e3
+const WEEK = 7 * 24 * HOUR
+
+/** Players in the game right now; null when Steam won't say (not out yet, or down). */
+export async function fetchPlayers(appid) {
+  try {
+    const res = await fetch(`https://api.steampowered.com/ISteamUserStats/GetNumberOfCurrentPlayers/v1/?appid=${appid}`, {
+      headers: { 'User-Agent': 'skeam-build' },
+      signal: AbortSignal.timeout(15000),
+    })
+    if (!res.ok) return null
+    const r = (await res.json())?.response
+    return r?.result === 1 && Number.isFinite(r.player_count) ? r.player_count : null
+  } catch {
+    return null
+  }
+}
+
+// Steam's review_score 1-9, as the Korean store words it.
+const SCORE_KO = ['', '압도적으로 부정적', '매우 부정적', '부정적', '대체로 부정적', '복합적', '대체로 긍정적', '긍정적', '매우 긍정적', '압도적으로 긍정적']
+
+/** All-language review totals: { total, positive, label }; null when Steam won't say. */
+export async function fetchReviews(appid) {
+  try {
+    const res = await fetch(`https://store.steampowered.com/appreviews/${appid}?json=1&language=all&purchase_type=all&filter=recent&num_per_page=0`, {
+      headers: { 'User-Agent': 'skeam-build' },
+      signal: AbortSignal.timeout(15000),
+    })
+    if (!res.ok) return null
+    const j = await res.json()
+    const q = j?.success === 1 ? j.query_summary : null
+    if (!q || !Number.isFinite(q.total_reviews)) return null
+    return { total: q.total_reviews, positive: q.total_positive ?? 0, label: SCORE_KO[q.review_score] || (q.total_reviews ? `사용자 평가 ${q.total_reviews}개` : '') }
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Adds this hour's sample to the history and sums up the last 7 days:
+ * the most players online at once, and reviews written this week.
+ * Samples go back 8 days so there is always one from before the week began.
+ */
+export function steamPopularity(history, players, reviews, now = Date.now()) {
+  const samples = (Array.isArray(history) ? history : []).filter((s) => s && s.t > now - WEEK - 24 * HOUR && s.t < now)
+  if (players != null || reviews) samples.push({ t: now, players: players ?? undefined, reviews: reviews?.total })
+  const inWeek = samples.filter((s) => s.t >= now - WEEK)
+  const peak = Math.max(0, ...inWeek.map((s) => s.players ?? 0))
+  const withReviews = samples.filter((s) => s.reviews != null)
+  const before = withReviews.filter((s) => s.t <= now - WEEK).pop() ?? withReviews[0]
+  const latest = withReviews[withReviews.length - 1]
+  return {
+    history: samples,
+    summary: {
+      peak,
+      reviews: latest?.reviews ?? 0,
+      newReviews: before && latest ? Math.max(0, latest.reviews - before.reviews) : 0,
+      positive: reviews ? Math.round((reviews.positive / Math.max(1, reviews.total)) * 100) : null,
+      label: reviews?.label ?? '',
+    },
   }
 }

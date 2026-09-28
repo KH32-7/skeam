@@ -1098,6 +1098,9 @@ img {
 }
 .about img {
   margin: 10px 0;
+  /* Steam descriptions give width/height attributes; without this a narrow
+     screen shrinks the width but keeps the height, stretching the picture. */
+  height: auto;
 }
 .ai-box {
   display: grid;
@@ -4008,4 +4011,5 @@ html.no-motion .modal {
 }
 .about video {
   max-width: 100%;
+  height: auto;
 }

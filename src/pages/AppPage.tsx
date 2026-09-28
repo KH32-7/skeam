@@ -81,6 +81,14 @@ function App({ g, site }: { g: Game; site: Site }) {
                 </span>
               </>
             )}
+            {g.steam?.popularity?.label && (
+              <>
+                <span>Steam 평가:</span>
+                <span className={`v review-${steamReviewClass(g.steam.popularity.positive)}`}>
+                  {g.steam.popularity.label} ({g.steam.popularity.reviews.toLocaleString('ko-KR')})
+                </span>
+              </>
+            )}
             <span>플랫폼:</span>
             <span className="v pos">{platformText(g)}</span>
             <span>출시일:</span>
@@ -277,6 +285,11 @@ function App({ g, site }: { g: Game; site: Site }) {
       </div>
     </>
   )
+}
+
+/** Same colors as SKEAM's own review line. */
+function steamReviewClass(positive: number | null) {
+  return positive == null ? '' : positive >= 70 ? 'pos' : positive >= 40 ? 'mixed' : 'neg'
 }
 
 /** "Windows, macOS" from the platforms Steam lists. */

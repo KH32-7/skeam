@@ -78,11 +78,25 @@ export function weeklyScore(s: GameStats | undefined) {
   return s.players * 3 + s.newOwners * 2 + s.week / 3600
 }
 
+/**
+ * Steam releases are played in Steam, not here, so they also score from what
+ * the build samples on Steam, on the same scale: the week's peak players online
+ * count like weekly players (at least that many played), and new Steam reviews
+ * like new owners (fewer people review than buy).
+ */
+export function steamScore(g: Game) {
+  const p = g.steam?.popularity
+  return p ? p.peak * 3 + p.newReviews * 2 : 0
+}
+
+export const gameScore = (g: Game, stats: Stats) => weeklyScore(stats[g.id]) + steamScore(g)
+
 /** Most popular this week first; ties go to more owners, then more play, then newer. */
 export function byPopularity(games: Game[], stats: Stats) {
   return [...games].sort(
     (a, b) =>
-      weeklyScore(stats[b.id]) - weeklyScore(stats[a.id]) ||
+      gameScore(b, stats) - gameScore(a, stats) ||
+      (b.steam?.popularity?.reviews ?? 0) - (a.steam?.popularity?.reviews ?? 0) ||
       (stats[b.id]?.owners ?? 0) - (stats[a.id]?.owners ?? 0) ||
       (stats[b.id]?.total ?? 0) - (stats[a.id]?.total ?? 0) ||
       b.release.localeCompare(a.release),
@@ -92,6 +106,13 @@ export function byPopularity(games: Game[], stats: Stats) {
 /** "이번 주 4명 플레이 · 6.5시간", for lists sorted by popularity. */
 export function weekLine(stats: Stats, g: Game) {
   const s = stats[g.id]
+  const p = g.steam?.popularity
+  // A Steam game whose numbers come mostly from Steam says so.
+  if (p && (p.peak || p.newReviews) && steamScore(g) >= weeklyScore(s)) {
+    const parts = p.peak ? [`Steam 이번 주 최고 ${p.peak.toLocaleString('ko-KR')}명 동시 플레이`] : []
+    if (p.newReviews) parts.push(`새 리뷰 ${p.newReviews}개`)
+    return parts.join(' · ')
+  }
   if (!s || (!s.players && !s.newOwners)) return s?.owners ? `${s.owners}명이 보유` : `출시: ${koDate(g.release)}`
   const parts = [s.players ? `이번 주 ${s.players}명 플레이` : `이번 주 ${s.newOwners}명이 받음`]
   if (s.week >= 360) parts.push(`${(s.week / 3600).toFixed(1).replace(/\.0$/, '')}시간`)
