@@ -1,0 +1,13 @@
+title: "사이버 포차"
+title_en: "Cyber Pocha"
+developer: "gamzuha"
+release: 2026-10-03
+price: 0
+play_url: "https://gammja17.github.io/cyber-pocha/"
+version: "1.0.0"
+tags: ["1인칭", "캐주얼", "파티 기반", "분위기 있는", "릴랙싱", "생활 및 몰입형 시뮬레이션"]
+short: "친구들이랑 야장, 편의점 앞 파라솔, 시끌벅적 호프에서 한잔. 최대 6명이 1인칭으로 마주 앉는 온라인 술자리."
+controls: "드래그로 둘러보기, 안주 클릭 한입, 술병 클릭 내 잔에 따르기, 내 잔 클릭 홀짝, Enter 채팅, 아래 버튼으로 주문·짠·담배·2차·계산·마이크"
+ai_tools: ["Claude Code"]
+dev_period: "1일"
+engine: "Three.js (Web, P2P 멀티플레이)"
