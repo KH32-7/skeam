@@ -14,13 +14,18 @@ permissions:
   pages: write
   id-token: write
 
+# Every run builds the whole site from main, so the newest run always has
+# everything an older one would deploy: a new run cancels the old one. This
+# also clears a run GitHub never gives a runner to (one sat "queued" for 14
+# hours and blocked every deploy after it until it was cancelled by hand).
 concurrency:
   group: pages
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     outputs:
       changed: ${{ steps.diff.outputs.changed }}
     steps:
@@ -52,6 +57,7 @@ jobs:
     needs: build
     if: needs.build.outputs.changed == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
