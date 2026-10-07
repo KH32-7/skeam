@@ -6,7 +6,7 @@ import { Loading, Price, Tags } from '../components/ui'
 import { fetchLiveGames, fetchLiveSite, useData } from '../data/api'
 import { koDate } from '../format'
 import type { Game, Site } from '../types'
-import { authFields } from '../state/account'
+import { authFields, postDesk } from '../state/account'
 import { useStore } from '../state/store'
 import { DEFAULT_TAGS, TAG_COLUMNS } from '../data/tags'
 
@@ -418,9 +418,7 @@ function GameForm({ games, site, existing, existingAbout }: { games: Game[]; sit
       return
     }
     try {
-      const res = await fetch(site.registerEndpoint, { method: 'POST', body: JSON.stringify(payload), headers: { 'Content-Type': 'text/plain;charset=utf-8' } })
-      const j = await res.json()
-      if (!j.ok) throw new Error(j.error || '알 수 없는 오류')
+      await postDesk(site.registerEndpoint, payload)
       setSubmit({ stage: 'building', id: f.id, updated })
     } catch (e) {
       setSubmit({ stage: 'failed', id: f.id, updated, error: String((e as Error).message ?? e) })
@@ -1037,13 +1035,12 @@ function QuickFill({ f, site, onFill }: { f: Form; site: Site; onFill: (patch: F
     setMsg(null)
     try {
       const src = url.trim() ? await readSources(url.trim()) : { repo: '', playUrl: '', readme: '', pageTitle: '', pageDescription: '' }
-      const r = await fetch(site.registerEndpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'autofill', ...authFields(), tags: DEFAULT_TAGS, input: { ...src, repo: src.repo ? `https://github.com/${src.repo}` : '', notes } }),
+      const j = await postDesk<{ fields: Record<string, unknown>; left: number }>(site.registerEndpoint, {
+        action: 'autofill',
+        ...authFields(),
+        tags: DEFAULT_TAGS,
+        input: { ...src, repo: src.repo ? `https://github.com/${src.repo}` : '', notes },
       })
-      const j = await r.json()
-      if (!j.ok) throw new Error(j.error)
       const fill = toFill(j.fields)
       if (src.playUrl) fill.playUrl = src.playUrl
       if (src.repo && !src.playUrl) Object.assign(fill, { repo: `https://github.com/${src.repo}`, win: 'repo' as WinMode })
@@ -1161,9 +1158,13 @@ interface SubmitState {
 }
 
 function SubmitStatus({ s, setS }: { s: SubmitState; setS: (s: SubmitState | null) => void }) {
+  // Keeps checking after it says "slow": when many games come in at once each
+  // new one restarts the site build, so the last few can take a while.
+  const waiting = s.stage === 'building' || s.stage === 'slow'
+  const startedAt = useRef(Date.now())
   useEffect(() => {
-    if (s.stage !== 'building') return
-    const started = Date.now()
+    if (!waiting) return
+    const started = startedAt.current
     const t = setInterval(async () => {
       try {
         const [live, site] = await Promise.all([fetchLiveGames(), fetchLiveSite()])
@@ -1177,13 +1178,11 @@ function SubmitStatus({ s, setS }: { s: SubmitState; setS: (s: SubmitState | nul
       } catch {
         /* keep polling */
       }
-      if (Date.now() - started > 8 * 60 * 1000) {
-        clearInterval(t)
-        setS({ ...s, stage: 'slow' })
-      }
+      if (s.stage === 'building' && Date.now() - started > 8 * 60 * 1000) setS({ ...s, stage: 'slow' })
+      if (Date.now() - started > 40 * 60 * 1000) clearInterval(t)
     }, 10000)
     return () => clearInterval(t)
-  }, [s, setS])
+  }, [s, setS, waiting])
 
   const steps = [
     ['sending', '등록 창구로 보내는 중'],
@@ -1209,7 +1208,7 @@ function SubmitStatus({ s, setS }: { s: SubmitState; setS: (s: SubmitState | nul
       ) : s.stage === 'slow' ? (
         <>
           <h3 style={{ color: '#fff', marginTop: 0 }}>반영이 늦어지고 있어요</h3>
-          <p>제출은 됐지만 8분이 지나도 사이트에 보이지 않습니다. 잠시 뒤 상점을 새로 고쳐 보고, 그래도 없으면 운영진에게 알려 주세요.</p>
+          <p>제출은 됐지만 8분이 지나도 사이트에 보이지 않습니다. 한꺼번에 여러 게임이 올라오면 더 걸릴 수 있어요. 이 화면은 계속 확인하다가 올라오면 바로 알려 드려요. 30분이 지나도 없으면 운영진에게 알려 주세요.</p>
         </>
       ) : (
         <ul className="progress-list">
@@ -1256,11 +1255,10 @@ function NewsForm({ games: all, site }: { games: Game[]; site: Site }) {
     }
     setState('sending')
     try {
-      const res = await fetch(site.registerEndpoint, { method: 'POST', body: JSON.stringify({ action: 'news', ...authFields(), id, files: [file] }), headers: { 'Content-Type': 'text/plain;charset=utf-8' } })
-      const j = await res.json()
-      setState(j.ok ? 'done' : j.error)
+      await postDesk(site.registerEndpoint, { action: 'news', ...authFields(), id, files: [file] })
+      setState('done')
     } catch (e) {
-      setState(String(e))
+      setState((e as Error).message ?? String(e))
     }
   }
   if (!games.length) return <NotMine name={me} />

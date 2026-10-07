@@ -169,7 +169,7 @@ async function latestRelease(repo) {
   const headers = { Accept: 'application/vnd.github+json', 'User-Agent': 'skeam-build' }
   if (process.env.GITHUB_TOKEN) headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`
   try {
-    const res = await fetch(`https://api.github.com/repos/${repo}/releases/latest`, { headers })
+    const res = await fetch(`https://api.github.com/repos/${repo}/releases/latest`, { headers, signal: AbortSignal.timeout(15000) })
     if (res.status === 404) return { missing: true }
     if (!res.ok) return { error: `GitHub API ${res.status}` }
     return { release: await res.json() }
@@ -545,7 +545,16 @@ async function main() {
     .filter((d) => d.isDirectory() && !d.name.startsWith('_'))
     .map((d) => d.name)
 
-  const built = await Promise.all(ids.map(buildGame))
+  // One game that trips over something unexpected is left out with the reason;
+  // it must never stop the build (and so the deploy) for everyone else.
+  const built = await Promise.all(
+    ids.map((id) =>
+      buildGame(id).catch((e) => {
+        problem(id, `게임을 읽다가 오류가 났습니다: ${e?.message ?? e}`)
+        return null
+      }),
+    ),
+  )
   const showable = (g) => g && g.title && g.images.header && (g.comingSoon || g.playUrl || g.download || g.repo || g.steam)
   const skipped = ids.filter((id, i) => !showable(built[i]))
   const games = built.filter(showable).filter((g) => !g.hidden)
@@ -559,7 +568,13 @@ async function main() {
   for (const id of asList(siteYml.featured)) if (!games.some((g) => g.id === id)) problem('site.yml', `없는 게임 id: ${id}`)
 
   const url = SITE_URL
-  for (const g of games) writeSharePage(g, url)
+  for (const g of games) {
+    try {
+      writeSharePage(g, url)
+    } catch (e) {
+      console.warn(`  [${g.id}] 링크 카드 페이지를 만들지 못했습니다: ${e?.message ?? e}`)
+    }
+  }
 
   const site = {
     builtAt: new Date().toISOString(),

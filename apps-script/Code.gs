@@ -101,10 +101,19 @@ function register(req) {
     })
   }
   var verb = req.clear && req.clear.length ? '수정' : '등록'
-  return commitGameFiles(req.id, files, req.clear || [], 'SKEAM: ' + req.id + ' ' + verb)
+  // A new game: if someone else claims the same id while this one uploads, stop
+  // instead of overwriting theirs (checked again right before committing).
+  return commitGameFiles(req.id, files, req.clear || [], 'SKEAM: ' + req.id + ' ' + verb, admin ? '' : who)
 }
 
-function commitGameFiles(id, files, clear, message) {
+/**
+ * Commits the files on top of the branch. Many people press 등록 at once at
+ * events, and the site's own workflows push too, so the branch can move while
+ * this runs: GitHub then refuses the update (not a fast-forward) and the commit
+ * is simply rebuilt on the new head and tried again. The files themselves are
+ * uploaded only once.
+ */
+function commitGameFiles(id, files, clear, message, owner) {
   if (!ID_RE.test(id || '')) throw new Error('게임 주소 이름이 올바르지 않습니다')
   if (!files || !files.length) throw new Error('보낼 파일이 없습니다')
   var total = 0
@@ -116,30 +125,48 @@ function commitGameFiles(id, files, clear, message) {
 
   var repo = prop('REPO', 'KH32-7/skeam')
   var branch = prop('BRANCH', 'main')
-  var head = gh('GET', '/repos/' + repo + '/git/ref/heads/' + branch).object.sha
-  var baseTree = gh('GET', '/repos/' + repo + '/git/commits/' + head).tree.sha
-  var tree = files.map(function (f) {
+  var blobs = files.map(function (f) {
     var blob = gh('POST', '/repos/' + repo + '/git/blobs', { content: f.data, encoding: 'base64' })
     return { path: 'games/' + id + '/' + f.path, mode: '100644', type: 'blob', sha: blob.sha }
   })
-  if (clear.length) {
-    var writing = {}
-    tree.forEach(function (t) {
-      writing[t.path] = true
-    })
-    var all = gh('GET', '/repos/' + repo + '/git/trees/' + baseTree + '?recursive=1').tree
-    all.forEach(function (t) {
-      var inGame = t.type === 'blob' && t.path.indexOf('games/' + id + '/') === 0
-      var cleared = clear.some(function (c) {
-        return t.path.indexOf('games/' + id + '/' + c) === 0
+  for (var attempt = 1; ; attempt++) {
+    var head = gh('GET', '/repos/' + repo + '/git/ref/heads/' + branch).object.sha
+    if (owner) assertNotTaken(repo, head, id, owner)
+    var baseTree = gh('GET', '/repos/' + repo + '/git/commits/' + head).tree.sha
+    var tree = blobs.slice()
+    if (clear.length) {
+      var writing = {}
+      tree.forEach(function (t) {
+        writing[t.path] = true
       })
-      if (inGame && cleared && !writing[t.path]) tree.push({ path: t.path, mode: '100644', type: 'blob', sha: null })
-    })
+      var all = gh('GET', '/repos/' + repo + '/git/trees/' + baseTree + '?recursive=1').tree
+      all.forEach(function (t) {
+        var inGame = t.type === 'blob' && t.path.indexOf('games/' + id + '/') === 0
+        var cleared = clear.some(function (c) {
+          return t.path.indexOf('games/' + id + '/' + c) === 0
+        })
+        if (inGame && cleared && !writing[t.path]) tree.push({ path: t.path, mode: '100644', type: 'blob', sha: null })
+      })
+    }
+    var newTree = gh('POST', '/repos/' + repo + '/git/trees', { base_tree: baseTree, tree: tree })
+    var commit = gh('POST', '/repos/' + repo + '/git/commits', { message: message, tree: newTree.sha, parents: [head] })
+    var res = ghRaw('PATCH', 'https://api.github.com/repos/' + repo + '/git/refs/heads/' + branch, { sha: commit.sha })
+    if (res.getResponseCode() < 300) return { ok: true, commit: commit.sha }
+    // 422 = someone else pushed first (or a GitHub hiccup): wait a moment, then redo on the new head.
+    var retry = res.getResponseCode() === 422 || res.getResponseCode() === 409 || res.getResponseCode() >= 500
+    if (!retry) throw new Error('GitHub ' + res.getResponseCode() + ': ' + res.getContentText().slice(0, 200))
+    if (attempt >= 8) throw new Error('지금 등록이 몰려서 저장하지 못했어요. 잠시 뒤 다시 눌러 주세요')
+    Utilities.sleep(500 + Math.floor(Math.random() * 1500 * attempt))
   }
-  var newTree = gh('POST', '/repos/' + repo + '/git/trees', { base_tree: baseTree, tree: tree })
-  var commit = gh('POST', '/repos/' + repo + '/git/commits', { message: message, tree: newTree.sha, parents: [head] })
-  gh('PATCH', '/repos/' + repo + '/git/refs/heads/' + branch, { sha: commit.sha })
-  return { ok: true, commit: commit.sha }
+}
+
+/** Throws if games/<id>/ now belongs to someone other than `owner` (taken while this upload ran). */
+function assertNotTaken(repo, head, id, owner) {
+  var res = ghRaw('GET', 'https://api.github.com/repos/' + repo + '/contents/games/' + id + '/game.yml?ref=' + head)
+  if (res.getResponseCode() === 404) return
+  if (res.getResponseCode() >= 300) throw new Error('GitHub ' + res.getResponseCode())
+  var dev = ymlDeveloper(Utilities.newBlob(Utilities.base64Decode(JSON.parse(res.getContentText()).content.replace(/\n/g, ''))).getDataAsString('UTF-8'))
+  if (dev.toLowerCase() !== owner.toLowerCase()) throw new Error('방금 ' + dev + '님이 같은 게임 주소 이름(' + id + ')으로 먼저 등록했어요. 게임 주소 이름을 바꿔서 다시 등록해 주세요')
 }
 
 /** EXE zips go to a Release on the SKEAM repo itself (files up to 2 GB). */
@@ -855,7 +882,8 @@ function assertOwner(id, who, mustExist) {
   if (res.getResponseCode() >= 300) throw new Error('GitHub ' + res.getResponseCode())
   var content = JSON.parse(res.getContentText()).content.replace(/\n/g, '')
   var dev = ymlDeveloper(Utilities.newBlob(Utilities.base64Decode(content)).getDataAsString('UTF-8'))
-  if (dev.toLowerCase() !== who.toLowerCase()) throw new Error('이 게임은 ' + dev + '만 수정할 수 있어요')
+  // Also what someone sees who picked an id another person registered minutes ago (the store page lags behind).
+  if (dev.toLowerCase() !== who.toLowerCase()) throw new Error('게임 주소 이름 ' + id + '은(는) 이미 ' + dev + '님의 게임이 쓰고 있어요. 새 게임이면 게임 주소 이름을 바꿔 주세요')
   return false
 }
 
@@ -882,7 +910,23 @@ function ghRaw(method, url, payload, contentType) {
       opt.payload = JSON.stringify(payload)
     }
   }
-  return UrlFetchApp.fetch(url, opt)
+  // When many people register at once GitHub may say "slow down" (secondary rate
+  // limit: about 80 new files/commits a minute) or have a hiccup: wait and try again.
+  for (var attempt = 1; ; attempt++) {
+    var res
+    try {
+      res = UrlFetchApp.fetch(url, opt)
+    } catch (e) {
+      if (attempt >= 4) throw e
+      Utilities.sleep(2000 * attempt)
+      continue
+    }
+    var code = res.getResponseCode()
+    var limited = code === 429 || (code === 403 && /rate limit/i.test(res.getContentText()))
+    if (!(limited || code === 502 || code === 503 || code === 504) || attempt >= 5) return res
+    var after = Number(res.getHeaders()['Retry-After'] || res.getHeaders()['retry-after'] || 0)
+    Utilities.sleep(Math.min(30, after || 3 * attempt) * 1000 + Math.floor(Math.random() * 2000))
+  }
 }
 
 function gh(method, path, payload) {
