@@ -13,14 +13,46 @@ async function endpoint() {
 }
 
 export async function call<T = Record<string, unknown>>(action: string, body: Record<string, unknown>): Promise<T & { ok: true }> {
-  const res = await fetch(await endpoint(), {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ action, ...body }),
-  })
-  const j = await res.json()
-  if (!j.ok) throw new Error(j.error || '알 수 없는 오류')
-  return j
+  return postDesk(await endpoint(), { action, ...body })
+}
+
+/**
+ * The desk is busy, not wrong: Apps Script runs at most 30 requests at once and
+ * answers an error page past that, the script lock or GitHub can be briefly
+ * crowded, or the network blinked. Worth trying again a moment later.
+ */
+const BUSY = /too many|simultaneous|Service invoked|Lock timeout|timed out|몰려서|GitHub (429|5\d\d)/i
+
+class Busy extends Error {}
+
+/** POST to the registration desk; a busy desk is tried again a few times before giving up. */
+export async function postDesk<T = Record<string, unknown>>(url: string, body: Record<string, unknown>, tries = 4): Promise<T & { ok: true }> {
+  for (let i = 1; ; i++) {
+    try {
+      let res: Response
+      try {
+        res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) })
+      } catch {
+        throw new Busy('인터넷 연결을 확인해 주세요')
+      }
+      const text = await res.text()
+      let j: { ok?: boolean; error?: string }
+      try {
+        j = JSON.parse(text)
+      } catch {
+        throw new Busy('등록 창구가 지금 바빠요. 잠시 뒤 다시 해 주세요')
+      }
+      if (!j.ok) {
+        const msg = j.error || '알 수 없는 오류'
+        throw BUSY.test(msg) ? new Busy(msg) : new Error(msg)
+      }
+      return j as T & { ok: true }
+    } catch (e) {
+      if (!(e instanceof Busy) || i >= tries) throw e
+      // 2s, 5s, 10s, plus a random bit so everyone who hit the wall doesn't come back together.
+      await new Promise((r) => setTimeout(r, [2000, 5000, 10000][i - 1] + Math.random() * 2000))
+    }
+  }
 }
 
 /** Adds name + token to a desk request; throws if nobody is logged in here. */

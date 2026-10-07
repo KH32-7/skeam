@@ -1,0 +1,36 @@
+name: Unstick deploys
+
+# Deploys run one at a time (deploy.yml), so a deploy run GitHub never gives a
+# runner to sits "queued" and holds back every deploy after it: it once kept
+# the site from updating for 14 hours. A normal deploy takes about a minute;
+# this cancels any that has been going for 30 minutes and starts a fresh one.
+on:
+  push:
+    branches: [main]
+  workflow_run:
+    workflows: [Deploy SKEAM]
+    types: [requested]
+  schedule:
+    - cron: '47 * * * *'
+  workflow_dispatch:
+
+permissions:
+  actions: write
+
+jobs:
+  unstick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          stuck=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/deploy.yml/runs?per_page=50" --jq \
+            '.workflow_runs[] | select((.status == "queued" or .status == "in_progress" or .status == "waiting") and (.created_at | fromdateiso8601) < (now - 1800)) | .id')
+          if [ -z "$stuck" ]; then echo "멈춘 배포 없음"; exit 0; fi
+          for id in $stuck; do
+            echo "30분 넘게 끝나지 않은 배포 $id 취소"
+            gh api -X POST "repos/$GITHUB_REPOSITORY/actions/runs/$id/cancel" || gh api -X POST "repos/$GITHUB_REPOSITORY/actions/runs/$id/force-cancel" || true
+          done
+          # Whatever it was going to deploy is still on main: deploy again.
+          gh workflow run deploy.yml --repo "$GITHUB_REPOSITORY" --ref "${{ github.event.repository.default_branch }}"
