@@ -1,0 +1,15 @@
+title: "마트 전쟁"
+title_en: "MartWar"
+developer: "nejad3103"
+release: 2026-10-08
+price: 0
+play_url: "https://github.com/nejad3103/FastMoreFAST"
+repo: "https://github.com/nejad3103/FastMoreFAST"
+version: "1.0.0"
+tags: []
+short: "마트에서 상품을 쟁취하자"
+controls: "마우스, 키보드 방향키"
+ai_tools: ["Gemini Pro"]
+dev_period: "1시간"
+engine: "크"
+updated: "2026-10-08T11:00:55.142Z"
