@@ -1,0 +1,16 @@
+title: "Break UP!"
+title_en: "Break UP!"
+developer: "bedvillain"
+release: 2026-10-08
+price: 0
+discount: 100
+play_url: "https://bedvillain.github.io/King_Craft_1.5/"
+repo: "https://github.com/bedvillain/King_Craft_1.5.git"
+version: "1.0.0"
+tags: ["1인칭", "격투 및 무술", "1인칭 슈팅"]
+short: "몬스터를 부숩시다!"
+controls: "AD로 좌우 회피! 방향키로 막기! 스페이스바로 회복과 반격!"
+ai_tools: ["Chat GPT"]
+dev_period: "1시간"
+ai_note: "의식에 흐름대로 만들었습니다"
+updated: "2026-10-08T11:00:11.470Z"
