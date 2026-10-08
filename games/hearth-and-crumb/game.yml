@@ -1,0 +1,12 @@
+title: "Hearth & Crumb · 골목 끝 작은 빵집"
+title_en: "Hearth & Crumb"
+developer: "KH327"
+release: 2026-10-08
+price: 11000
+play_url: "https://kh32-7.github.io/hearth-and-crumb/"
+tags: ["요리", "시뮬레이션", "경영", "힐링", "캐주얼", "3D", "생활 및 몰입형 시뮬레이션"]
+short: "반죽을 직접 치대고, 떼고, 굴리고, 꼬아서 굽는 골목 끝 작은 빵집 3D 베이킹 시뮬레이터."
+controls: "WASD 이동 · 마우스 시점 · 클릭으로 손과 도구 사용 · 우클릭 화덕 들여다보기 · Shift 빨리 걷기 · Esc 메뉴"
+ai_tools: ["Claude Code", "Higgsfield"]
+engine: "Three.js (WebGL)"
+ai_note: "기획, 셰이더, 손으로 빚는 반죽 성형까지 Claude Code로 만들고 타이틀 그림은 Higgsfield로 그렸어요."
