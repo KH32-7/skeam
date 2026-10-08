@@ -5,7 +5,7 @@ import { Modal } from '../components/ui'
 import { walletWon, won } from '../format'
 import { addFunds, useStore } from '../state/store'
 
-const AMOUNTS = [5000, 10000, 25000, 50000, 100000]
+const AMOUNTS = [5000, 10000, 25000, 50000, 100000, 1000000, 10000000]
 
 export default function Wallet() {
   const wallet = useStore((s) => s.wallet)
