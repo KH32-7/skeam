@@ -5,7 +5,7 @@ release: 2026-10-08
 price: 0
 play_url: "https://binpositive.github.io/MakeAlone/"
 tags: ["캐주얼"]
-short: "지하철 자리 차지하는 게임"
+short: "지하철 자리를 민첩하게 차지하는 게임"
 controls: "방향키 이동"
 ai_tools: []
-updated: "2026-10-08T10:59:37.861Z"
+updated: "2026-10-08T15:32:06.337Z"
