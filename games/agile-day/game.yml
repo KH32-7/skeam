@@ -1,0 +1,13 @@
+title: "민첩한 하루 되세요"
+title_en: "Have an Agile Day"
+developer: KH327
+release: 2026-10-08
+price: 0
+play_url: https://kh32-7.github.io/agile-day/
+tags: [로그라이트, 액션, 탄막, 캐주얼]
+short: "인사말이 진짜 마법이 되는 도시. 이웃들이 건네는 인사를 모아 출근길부터 야근까지 하루를 버티는 로그라이트."
+controls: "WASD / 방향키 이동, Space·Shift 대시, Esc 일시정지. 공격은 자동. 모바일은 왼쪽 드래그 이동, 오른쪽 탭 대시. 게임패드 지원"
+ai_tools: [Claude Code]
+dev_period: "1일"
+ai_note: "그래픽과 사운드를 이미지·음원 파일 없이 전부 코드(Canvas, WebAudio)로 만들었습니다."
+engine: "HTML5 Canvas + WebAudio (빌드 없음)"
