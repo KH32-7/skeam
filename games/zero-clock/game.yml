@@ -1,0 +1,12 @@
+title: "제로 클락"
+title_en: "ZERO CLOCK"
+developer: "냐아아아"
+release: 2026-10-08
+price: 3000
+play_url: "https://kakao3838.github.io/kingcraft/"
+tags: []
+short: "시계에 뜬 숫자들을 사칙연산으로 30초 안에 0으로 만드는 수식 퍼즐 게임, 제로 클락!"
+ai_tools: ["Claude Code"]
+dev_period: "1시간"
+engine: "Sonet 5.5"
+updated: "2026-10-08T10:54:02.025Z"
