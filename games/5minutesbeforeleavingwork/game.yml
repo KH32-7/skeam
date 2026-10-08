@@ -1,0 +1,14 @@
+title: "퇴근 5분 전"
+title_en: "5minutesbeforeleavingwork"
+developer: "EPSIHYEON"
+release: 2026-10-08
+price: 5555
+play_url: "https://epsihyeon.github.io/5minutesbeforeleavingwork/"
+tags: []
+short: "퇴근하고 싶어! 야근을 피하기 위한 5분간 상사를 피해다닙시다"
+controls: " - 조작: `←` `→` 이동 · `↑` 점프 · `Shift` 누르는 동안 슬라이딩 · `Esc` 일시정지 · `R` 재도전"
+ai_tools: ["Claude", "Codex"]
+dev_period: "1시간"
+ai_note: "Thank you AI."
+engine: "웹"
+updated: "2026-10-08T10:58:19.270Z"
