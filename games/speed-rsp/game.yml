@@ -2,9 +2,10 @@ title: "순발력 가위바위"
 developer: "sun4im"
 release: 2026-10-08
 price: 200
+discount: 100
 play_url: "https://sun4im.github.io/king-1h-hackathon/"
 tags: []
 short: "민첩하게 반칙해서 이겨보자."
 controls: "클릭"
 ai_tools: []
-updated: "2026-10-08T15:12:44.906Z"
+updated: "2026-10-08T15:16:27.259Z"
