@@ -1,0 +1,12 @@
+title: "오늘도 갓생 살아볼까요?"
+developer: "LSH"
+release: 2026-10-08
+price: 0
+play_url: "https://teumyee.github.io/game_hackathon/"
+tags: []
+short: "갓생살기"
+controls: "ad 이동키"
+ai_tools: ["codex"]
+ai_note: "빌드.. 힘들었습니다"
+engine: "유니티"
+updated: "2026-10-08T13:34:08.356Z"
