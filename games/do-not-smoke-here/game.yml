@@ -1,0 +1,13 @@
+title: "DO NOT SMOKE HERE"
+title_en: "DO NOT SMOKE HERE"
+developer: "gamzuha"
+release: 2026-10-13
+price: 0
+repo: "https://github.com/Gammja17/SmokeBuster"
+version: "0.12"
+tags: ["오픈 월드", "샌드박스", "코미디", "시뮬레이션", "3인칭", "싱글 플레이어"]
+short: "물총 하나로 동네 흡연자를 단속하는 경찰 샌드박스. 출근해서 순찰하고, 단속하고, 동네를 깨끗하게."
+controls: "WASD 이동, 마우스 조준, 좌클릭 물 뿌리기, 우클릭 사진, E 상호작용, F 차 타기, Tab 무기, B 폰"
+ai_tools: ["Claude Code", "VARCO 3D"]
+dev_period: "3일"
+engine: "Godot 4.7 (Windows)"
